@@ -1,0 +1,13 @@
+__pycache__/
+*.py[cod]
+.env
+.venv/
+venv/
+.DS_Store
+db/*.sqlite
+db/*.sqlite3
+db/*.db
+questions/debug_reports/
+questions/feedback_loop/
+questions/visual_benchmarks/
+questions/walkthrough_sync_reviews/

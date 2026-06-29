@@ -1,0 +1,779 @@
+[
+  {
+    "world": "3d",
+    "unknown": "impact_coordinates",
+    "constraints": [
+      "line_constraint"
+    ],
+    "engine_case": "three_dimensional_projectile_line_intersection",
+    "status": "solved",
+    "source": [
+      "dpp",
+      "engine"
+    ],
+    "needs_diagram": true,
+    "notes": ""
+  },
+  {
+    "world": "drag",
+    "unknown": "drag_effects",
+    "constraints": [
+      "air_drag"
+    ],
+    "engine_case": "air_drag_conceptual_timing",
+    "status": "solved",
+    "source": [
+      "dpp",
+      "mapper"
+    ],
+    "needs_diagram": false,
+    "notes": "projectilenorm Q12"
+  },
+  {
+    "world": "drag",
+    "unknown": "drag_effects",
+    "constraints": [
+      "qualitative"
+    ],
+    "engine_case": "air_drag_conceptual_timing",
+    "status": "partial",
+    "source": [
+      "syllabus",
+      "engine"
+    ],
+    "needs_diagram": true,
+    "notes": "Qualitative rule exists for current DPP family; not a numeric drag solver."
+  },
+  {
+    "world": "height_launch",
+    "unknown": "maximum_range",
+    "constraints": [
+      "fixed_speed",
+      "optimize"
+    ],
+    "engine_case": "max_range_from_height_fixed_speed",
+    "status": "solved",
+    "source": [
+      "syllabus",
+      "engine"
+    ],
+    "needs_diagram": false,
+    "notes": ""
+  },
+  {
+    "world": "height_launch",
+    "unknown": "maximum_range",
+    "constraints": [
+      "initial_height",
+      "same_height_landing"
+    ],
+    "engine_case": "max_range_from_height_fixed_speed",
+    "status": "solved",
+    "source": [
+      "dpp",
+      "mapper"
+    ],
+    "needs_diagram": false,
+    "notes": "projectilenorm Q13"
+  },
+  {
+    "world": "height_launch",
+    "unknown": "range",
+    "constraints": [
+      "initial_height"
+    ],
+    "engine_case": "height_launch_range",
+    "status": "solved",
+    "source": [
+      "syllabus",
+      "engine"
+    ],
+    "needs_diagram": false,
+    "notes": "Use height-launch time root then x=u_x t."
+  },
+  {
+    "world": "height_launch",
+    "unknown": "time_of_flight",
+    "constraints": [
+      "initial_height"
+    ],
+    "engine_case": "height_launch_time_of_flight",
+    "status": "solved",
+    "source": [
+      "syllabus",
+      "engine"
+    ],
+    "needs_diagram": false,
+    "notes": "Quadratic y(t)=0 from nonzero height."
+  },
+  {
+    "world": "height_launch",
+    "unknown": "unknown",
+    "constraints": [
+      "initial_height"
+    ],
+    "engine_case": "horizontal_throw_velocity_angle_time",
+    "status": "solved",
+    "source": [
+      "dpp",
+      "mapper"
+    ],
+    "needs_diagram": false,
+    "notes": "projectilenorm Q05"
+  },
+  {
+    "world": "incline",
+    "unknown": "condition_for_perpendicular_impact",
+    "constraints": [
+      "surface_intersection",
+      "perpendicular_impact"
+    ],
+    "engine_case": "inclined_plane_right_angle_impact_condition",
+    "status": "solved",
+    "source": [
+      "syllabus",
+      "engine"
+    ],
+    "needs_diagram": true,
+    "notes": ""
+  },
+  {
+    "world": "incline",
+    "unknown": "impact_time",
+    "constraints": [
+      "surface_intersection"
+    ],
+    "engine_case": "inclined_plane_impact_time",
+    "status": "solved",
+    "source": [
+      "syllabus",
+      "engine"
+    ],
+    "needs_diagram": true,
+    "notes": ""
+  },
+  {
+    "world": "incline",
+    "unknown": "maximum_range",
+    "constraints": [
+      "given_range"
+    ],
+    "engine_case": "max_range_on_incline",
+    "status": "solved",
+    "source": [
+      "dpp",
+      "mapper"
+    ],
+    "needs_diagram": false,
+    "notes": "projectileinc Q09"
+  },
+  {
+    "world": "incline",
+    "unknown": "maximum_range_on_incline",
+    "constraints": [
+      "optimize"
+    ],
+    "engine_case": "max_range_on_incline",
+    "status": "solved",
+    "source": [
+      "syllabus",
+      "engine"
+    ],
+    "needs_diagram": true,
+    "notes": ""
+  },
+  {
+    "world": "incline",
+    "unknown": "range",
+    "constraints": [],
+    "engine_case": "horizontal_launch_onto_incline_distance",
+    "status": "solved",
+    "source": [
+      "dpp",
+      "mapper"
+    ],
+    "needs_diagram": false,
+    "notes": "projectileinc Q10"
+  },
+  {
+    "world": "incline",
+    "unknown": "range",
+    "constraints": [
+      "perpendicular"
+    ],
+    "engine_case": "perpendicular_launch_range_on_incline",
+    "status": "solved",
+    "source": [
+      "dpp",
+      "mapper"
+    ],
+    "needs_diagram": true,
+    "notes": "projectileinc Q08"
+  },
+  {
+    "world": "incline",
+    "unknown": "range_on_incline",
+    "constraints": [
+      "perpendicular_launch"
+    ],
+    "engine_case": "perpendicular_launch_range_on_incline",
+    "status": "solved",
+    "source": [
+      "syllabus",
+      "engine"
+    ],
+    "needs_diagram": true,
+    "notes": ""
+  },
+  {
+    "world": "incline",
+    "unknown": "range_ratio_or_time_ratio",
+    "constraints": [
+      "same_point",
+      "two_launch_angles"
+    ],
+    "engine_case": "inclined_plane_same_point_time_ratio",
+    "status": "solved",
+    "source": [
+      "syllabus",
+      "engine"
+    ],
+    "needs_diagram": true,
+    "notes": ""
+  },
+  {
+    "world": "incline",
+    "unknown": "time_when_velocity_angle",
+    "constraints": [],
+    "engine_case": "inclined_plane_impact_time",
+    "status": "solved",
+    "source": [
+      "dpp",
+      "mapper"
+    ],
+    "needs_diagram": true,
+    "notes": "projectileinc Q01"
+  },
+  {
+    "world": "incline",
+    "unknown": "unknown",
+    "constraints": [],
+    "engine_case": "inclined_plane_right_angle_impact_condition",
+    "status": "solved",
+    "source": [
+      "dpp",
+      "mapper"
+    ],
+    "needs_diagram": true,
+    "notes": "projectileinc Q03"
+  },
+  {
+    "world": "incline",
+    "unknown": "unknown",
+    "constraints": [
+      "perpendicular"
+    ],
+    "engine_case": "motion_on_smooth_incline_perpendicular_to_slope",
+    "status": "solved",
+    "source": [
+      "dpp",
+      "mapper"
+    ],
+    "needs_diagram": false,
+    "notes": "projectileinc Q13"
+  },
+  {
+    "world": "level_ground",
+    "unknown": "average_velocity_to_peak",
+    "constraints": [
+      "same_height_landing"
+    ],
+    "engine_case": "average_velocity_to_peak",
+    "status": "solved",
+    "source": [
+      "dpp",
+      "mapper"
+    ],
+    "needs_diagram": false,
+    "notes": "projectilenorm Q10"
+  },
+  {
+    "world": "level_ground",
+    "unknown": "change_in_velocity",
+    "constraints": [
+      "constant_gravity",
+      "time_interval"
+    ],
+    "engine_case": "velocity_change_interval",
+    "status": "solved",
+    "source": [
+      "syllabus",
+      "engine"
+    ],
+    "needs_diagram": false,
+    "notes": ""
+  },
+  {
+    "world": "level_ground",
+    "unknown": "change_in_velocity",
+    "constraints": [
+      "same_height_landing"
+    ],
+    "engine_case": "velocity_change_interval",
+    "status": "solved",
+    "source": [
+      "dpp",
+      "mapper"
+    ],
+    "needs_diagram": false,
+    "notes": "projectilenorm Q02"
+  },
+  {
+    "world": "level_ground",
+    "unknown": "launch_angle",
+    "constraints": [
+      "given_range",
+      "same_height_landing"
+    ],
+    "engine_case": "level_ground_launch_angle_from_range",
+    "status": "solved",
+    "source": [
+      "syllabus",
+      "engine"
+    ],
+    "needs_diagram": false,
+    "notes": "Solve sin(2theta)=gR/u^2; may return two angles."
+  },
+  {
+    "world": "level_ground",
+    "unknown": "maximum_height",
+    "constraints": [],
+    "engine_case": "projectile_with_horizontal_acceleration",
+    "status": "solved",
+    "source": [
+      "dpp",
+      "mapper"
+    ],
+    "needs_diagram": false,
+    "notes": "projectilenorm Q11"
+  },
+  {
+    "world": "level_ground",
+    "unknown": "maximum_height",
+    "constraints": [
+      "peak"
+    ],
+    "engine_case": "level_ground_max_height",
+    "status": "solved",
+    "source": [
+      "syllabus",
+      "engine"
+    ],
+    "needs_diagram": false,
+    "notes": ""
+  },
+  {
+    "world": "level_ground",
+    "unknown": "maximum_range",
+    "constraints": [
+      "same_height_landing",
+      "optimize"
+    ],
+    "engine_case": "level_ground_range",
+    "status": "solved",
+    "source": [
+      "syllabus",
+      "engine"
+    ],
+    "needs_diagram": false,
+    "notes": "Same solver; theta=45deg gives maximum for fixed speed."
+  },
+  {
+    "world": "level_ground",
+    "unknown": "position_at_time",
+    "constraints": [
+      "same_height_landing"
+    ],
+    "engine_case": "level_ground_position_at_time",
+    "status": "solved",
+    "source": [
+      "syllabus",
+      "engine"
+    ],
+    "needs_diagram": false,
+    "notes": "General x(t), y(t) primitive for fixed time."
+  },
+  {
+    "world": "level_ground",
+    "unknown": "range",
+    "constraints": [
+      "same_height_landing"
+    ],
+    "engine_case": "level_ground_range",
+    "status": "solved",
+    "source": [
+      "syllabus",
+      "engine"
+    ],
+    "needs_diagram": false,
+    "notes": "R = u^2 sin(2theta)/g."
+  },
+  {
+    "world": "level_ground",
+    "unknown": "speed_at_velocity_angle",
+    "constraints": [],
+    "engine_case": "velocity_angle_event_speed",
+    "status": "solved",
+    "source": [
+      "dpp",
+      "mapper"
+    ],
+    "needs_diagram": false,
+    "notes": "projectilenorm Q04"
+  },
+  {
+    "world": "level_ground",
+    "unknown": "speed_at_velocity_angle",
+    "constraints": [
+      "velocity_angle_event"
+    ],
+    "engine_case": "velocity_angle_event_speed",
+    "status": "solved",
+    "source": [
+      "syllabus",
+      "engine"
+    ],
+    "needs_diagram": false,
+    "notes": ""
+  },
+  {
+    "world": "level_ground",
+    "unknown": "time_of_flight",
+    "constraints": [],
+    "engine_case": "parametric_curve_classification",
+    "status": "solved",
+    "source": [
+      "dpp",
+      "mapper"
+    ],
+    "needs_diagram": false,
+    "notes": "projectilenorm Q03"
+  },
+  {
+    "world": "level_ground",
+    "unknown": "time_of_flight",
+    "constraints": [
+      "same_height_landing"
+    ],
+    "engine_case": "level_ground_time_of_flight",
+    "status": "solved",
+    "source": [
+      "syllabus",
+      "engine"
+    ],
+    "needs_diagram": false,
+    "notes": ""
+  },
+  {
+    "world": "level_ground",
+    "unknown": "time_when_velocity_angle",
+    "constraints": [
+      "horizontal_launch",
+      "velocity_angle_event"
+    ],
+    "engine_case": "horizontal_throw_velocity_angle_time",
+    "status": "solved",
+    "source": [
+      "syllabus",
+      "engine"
+    ],
+    "needs_diagram": false,
+    "notes": ""
+  },
+  {
+    "world": "level_ground",
+    "unknown": "time_when_velocity_angle",
+    "constraints": [
+      "perpendicular"
+    ],
+    "engine_case": "velocity_perpendicular_to_initial_event",
+    "status": "solved",
+    "source": [
+      "dpp",
+      "mapper"
+    ],
+    "needs_diagram": false,
+    "notes": "projectilenorm Q06"
+  },
+  {
+    "world": "level_ground",
+    "unknown": "unknown",
+    "constraints": [],
+    "engine_case": "parametric_initial_speed",
+    "status": "solved",
+    "source": [
+      "dpp",
+      "mapper"
+    ],
+    "needs_diagram": false,
+    "notes": "projectilenorm Q01"
+  },
+  {
+    "world": "level_ground",
+    "unknown": "unknown",
+    "constraints": [
+      "same_height_landing"
+    ],
+    "engine_case": "fielder_catch_before_ground",
+    "status": "solved",
+    "source": [
+      "dpp",
+      "mapper"
+    ],
+    "needs_diagram": false,
+    "notes": "projectilenorm Q09"
+  },
+  {
+    "world": "multi_projectile",
+    "unknown": "collision_time",
+    "constraints": [
+      "simultaneous_launch",
+      "interception"
+    ],
+    "engine_case": "two_projectile_collision_time",
+    "status": "partial",
+    "source": [
+      "syllabus",
+      "engine"
+    ],
+    "needs_diagram": false,
+    "notes": "Solved for explicit component-form text; general angle/speed relative launch parsing still needs expansion."
+  },
+  {
+    "world": "multi_projectile",
+    "unknown": "time_ratio_squared",
+    "constraints": [
+      "simultaneous_launch",
+      "interception"
+    ],
+    "engine_case": "two_projectile_interception_time_ratio",
+    "status": "solved",
+    "source": [
+      "syllabus",
+      "engine"
+    ],
+    "needs_diagram": false,
+    "notes": ""
+  },
+  {
+    "world": "relative_motion",
+    "unknown": "projection_speed",
+    "constraints": [
+      "inclined_motion",
+      "collision"
+    ],
+    "engine_case": "projectile_collides_with_sliding_particle_on_incline",
+    "status": "solved",
+    "source": [
+      "dpp",
+      "engine"
+    ],
+    "needs_diagram": true,
+    "notes": ""
+  },
+  {
+    "world": "staircase",
+    "unknown": "step_number",
+    "constraints": [],
+    "engine_case": "staircase_collision",
+    "status": "solved",
+    "source": [
+      "dpp",
+      "mapper"
+    ],
+    "needs_diagram": false,
+    "notes": "projectileinc Q05"
+  },
+  {
+    "world": "staircase",
+    "unknown": "step_number",
+    "constraints": [
+      "piecewise_vertical_faces"
+    ],
+    "engine_case": "staircase_collision",
+    "status": "solved",
+    "source": [
+      "syllabus",
+      "engine"
+    ],
+    "needs_diagram": true,
+    "notes": ""
+  },
+  {
+    "world": "target",
+    "unknown": "launch_angle",
+    "constraints": [
+      "fixed_speed",
+      "fixed_target"
+    ],
+    "engine_case": "target_launch_angle_fixed_speed",
+    "status": "solved",
+    "source": [
+      "syllabus",
+      "engine"
+    ],
+    "needs_diagram": true,
+    "notes": "General target-angle solver; DPP-specific overshoot case remains separate."
+  },
+  {
+    "world": "target",
+    "unknown": "launch_angle",
+    "constraints": [
+      "same_height_landing"
+    ],
+    "engine_case": "same_range_doubled_angle_time_ratio",
+    "status": "solved",
+    "source": [
+      "dpp",
+      "mapper"
+    ],
+    "needs_diagram": false,
+    "notes": "projectilenorm Q07"
+  },
+  {
+    "world": "target",
+    "unknown": "minimum_speed",
+    "constraints": [],
+    "engine_case": "minimum_speed_to_hit_target",
+    "status": "solved",
+    "source": [
+      "dpp",
+      "mapper"
+    ],
+    "needs_diagram": false,
+    "notes": "projectileinc Q06"
+  },
+  {
+    "world": "target",
+    "unknown": "minimum_speed",
+    "constraints": [
+      "fixed_target",
+      "optimize"
+    ],
+    "engine_case": "minimum_speed_to_hit_target",
+    "status": "solved",
+    "source": [
+      "syllabus",
+      "engine"
+    ],
+    "needs_diagram": true,
+    "notes": ""
+  },
+  {
+    "world": "target",
+    "unknown": "reachability_condition",
+    "constraints": [
+      "fixed_speed",
+      "fixed_target"
+    ],
+    "engine_case": "target_reachability_fixed_speed",
+    "status": "solved",
+    "source": [
+      "syllabus",
+      "engine"
+    ],
+    "needs_diagram": true,
+    "notes": ""
+  },
+  {
+    "world": "target",
+    "unknown": "time_of_flight",
+    "constraints": [
+      "miss_distance",
+      "same_height_landing"
+    ],
+    "engine_case": "target_angle_from_short_overshoot",
+    "status": "solved",
+    "source": [
+      "dpp",
+      "mapper"
+    ],
+    "needs_diagram": false,
+    "notes": "projectilenorm Q08"
+  },
+  {
+    "world": "target",
+    "unknown": "unknown",
+    "constraints": [],
+    "engine_case": "target_reachability_fixed_speed",
+    "status": "solved",
+    "source": [
+      "dpp",
+      "mapper"
+    ],
+    "needs_diagram": false,
+    "notes": "projectileinc Q04"
+  },
+  {
+    "world": "two_inclines",
+    "unknown": "impact_speed",
+    "constraints": [
+      "perpendicular"
+    ],
+    "engine_case": "two_inclines_perpendicular_launch_impact",
+    "status": "solved",
+    "source": [
+      "dpp",
+      "mapper"
+    ],
+    "needs_diagram": true,
+    "notes": "projectileinc Q11"
+  },
+  {
+    "world": "two_inclines",
+    "unknown": "impact_speed",
+    "constraints": [
+      "perpendicular_launch",
+      "perpendicular_impact"
+    ],
+    "engine_case": "two_inclines_perpendicular_launch_impact",
+    "status": "solved",
+    "source": [
+      "dpp",
+      "engine"
+    ],
+    "needs_diagram": true,
+    "notes": ""
+  },
+  {
+    "world": "wall",
+    "unknown": "clears_wall_condition",
+    "constraints": [
+      "fixed_horizontal_distance",
+      "obstacle_height"
+    ],
+    "engine_case": "wall_clearance_condition",
+    "status": "solved",
+    "source": [
+      "syllabus",
+      "engine"
+    ],
+    "needs_diagram": true,
+    "notes": ""
+  },
+  {
+    "world": "wall",
+    "unknown": "height_at_wall",
+    "constraints": [
+      "fixed_horizontal_distance"
+    ],
+    "engine_case": "wall_height_at_distance",
+    "status": "solved",
+    "source": [
+      "syllabus",
+      "engine"
+    ],
+    "needs_diagram": true,
+    "notes": "Use trajectory equation at x=wall_x."
+  }
+]
