@@ -1,0 +1,1057 @@
+[
+  {
+    "pdf_id": "projectilenorm",
+    "source_pdf": "questions/projectilenorm.pdf",
+    "question_number": 1,
+    "page_start": 1,
+    "question_type": "mcq",
+    "question_text": "Q 1. The height y and distance x along the horizontal for a body projected in the vertical plane are given by y = 8t - 5t2 and x = 6t. The initial speed of projection is",
+    "options": [
+      "8 m/s",
+      "9 m/s",
+      "10 m/s",
+      "(10/3) m/s"
+    ],
+    "expected_option_letter": "c",
+    "expected_answer": "10 m/s",
+    "expected_units": null,
+    "requires_diagram": false,
+    "diagram_pages": [],
+    "projectile_subtype": "projectile_parametric",
+    "requested_quantity": "initial_speed",
+    "solver_status": "unclassified",
+    "notes": "",
+    "engine_case": "parametric_initial_speed",
+    "knowns": [
+      "x(t)=6t",
+      "y(t)=8t-5t^2"
+    ],
+    "unknowns": [
+      "v0"
+    ],
+    "constraints": [
+      "given x(t)",
+      "given y(t)",
+      "differentiate position or read velocity components"
+    ],
+    "needs_symbolic_solver": false,
+    "needs_diagram_geometry": false,
+    "current_engine_status": "unsupported"
+  },
+  {
+    "pdf_id": "projectilenorm",
+    "source_pdf": "questions/projectilenorm.pdf",
+    "question_number": 2,
+    "page_start": 1,
+    "question_type": "mcq",
+    "question_text": "Q 2. A particle is projected from the ground with an initial velocity of 20 m/s at an angle of 30deg with horizontal. The magnitude of change in velocity in a time interval from t = 0 to t = 0.5s is : (g = 10 m/s2)",
+    "options": [
+      "5 m/s",
+      "2.5 m/s",
+      "2 m/s",
+      "4 m/s"
+    ],
+    "expected_option_letter": "a",
+    "expected_answer": "5 m/s",
+    "expected_units": null,
+    "requires_diagram": false,
+    "diagram_pages": [],
+    "projectile_subtype": "projectile_basic",
+    "requested_quantity": "magnitude_change_in_velocity",
+    "solver_status": "unclassified",
+    "notes": "",
+    "engine_case": "velocity_change_interval",
+    "knowns": [
+      "v0=20 m/s",
+      "angle=30deg",
+      "g=10 m/s^2",
+      "dt=0.5s"
+    ],
+    "unknowns": [
+      "|delta_v|"
+    ],
+    "constraints": [
+      "constant acceleration",
+      "delta_v = g * delta_t"
+    ],
+    "needs_symbolic_solver": false,
+    "needs_diagram_geometry": false,
+    "current_engine_status": "partial"
+  },
+  {
+    "pdf_id": "projectilenorm",
+    "source_pdf": "questions/projectilenorm.pdf",
+    "question_number": 3,
+    "page_start": 1,
+    "question_type": "mcq",
+    "question_text": "Q 3. The velocity of a particle moving in the x -y plane is given by 𝑑𝑥 𝑑𝑡 = 8𝜋 sin 2𝜋𝑡, 𝑑𝑦 𝑑𝑡 = 5𝜋 cos 2𝜋𝑡. When t = 0, x = 8 and y = 0. The path of the particle is",
+    "options": [
+      "A straight line",
+      "A circle",
+      "An ellipse",
+      "Parabola"
+    ],
+    "expected_option_letter": "c",
+    "expected_answer": "An ellipse",
+    "expected_units": null,
+    "requires_diagram": false,
+    "diagram_pages": [],
+    "projectile_subtype": "kinematics_parametric_non_projectile",
+    "requested_quantity": "path_shape",
+    "solver_status": "unclassified",
+    "notes": "Not standard projectile motion; keep in suite because DPP includes it.",
+    "engine_case": "parametric_curve_classification",
+    "knowns": [
+      "dx/dt=8pi sin(2pi t)",
+      "dy/dt=5pi cos(2pi t)",
+      "x(0)=8",
+      "y(0)=0"
+    ],
+    "unknowns": [
+      "curve_type"
+    ],
+    "constraints": [
+      "integrate dx/dt",
+      "integrate dy/dt",
+      "eliminate time"
+    ],
+    "needs_symbolic_solver": true,
+    "needs_diagram_geometry": false,
+    "current_engine_status": "unsupported"
+  },
+  {
+    "pdf_id": "projectilenorm",
+    "source_pdf": "questions/projectilenorm.pdf",
+    "question_number": 4,
+    "page_start": 1,
+    "question_type": "mcq",
+    "question_text": "Q 4. A particle is projected at an angle of 60deg above the horizontal with a speed of 10 m/s. After some time the direction of its velocity makes an angle of 30deg above the horizontal. The speed of the particle at this instant is:",
+    "options": [
+      "5 sqrt3m/s",
+      "5sqrt3m/s",
+      "5 m/s",
+      "10/root(3) m/s"
+    ],
+    "expected_option_letter": "d",
+    "expected_answer": "10/root(3) m/s",
+    "expected_units": null,
+    "requires_diagram": false,
+    "diagram_pages": [],
+    "projectile_subtype": "projectile_basic",
+    "requested_quantity": "speed_when_velocity_angle_matches",
+    "solver_status": "unclassified",
+    "notes": "",
+    "engine_case": "velocity_angle_event_speed",
+    "knowns": [
+      "v0=10 m/s",
+      "launch_angle=60deg",
+      "velocity_angle=30deg"
+    ],
+    "unknowns": [
+      "speed_at_event"
+    ],
+    "constraints": [
+      "vx constant",
+      "tan(phi)=vy/vx"
+    ],
+    "needs_symbolic_solver": false,
+    "needs_diagram_geometry": false,
+    "current_engine_status": "unsupported"
+  },
+  {
+    "pdf_id": "projectilenorm",
+    "source_pdf": "questions/projectilenorm.pdf",
+    "question_number": 5,
+    "page_start": 1,
+    "question_type": "mcq",
+    "question_text": "Q 5. A body is thrown horizontally from a tower, 100 m high with a velocity 10 ms -1. It is moving at an angle 450 with horizontal after:",
+    "options": [
+      "2 sec",
+      "4 sec",
+      "1 sec",
+      "3 sec"
+    ],
+    "expected_option_letter": "c",
+    "expected_answer": "1 sec",
+    "expected_units": null,
+    "requires_diagram": false,
+    "diagram_pages": [],
+    "projectile_subtype": "projectile_horizontal_throw",
+    "requested_quantity": "time_when_velocity_angle_matches",
+    "solver_status": "unclassified",
+    "notes": "",
+    "engine_case": "horizontal_throw_velocity_angle_time",
+    "knowns": [
+      "height=100m",
+      "vx=10m/s",
+      "velocity_angle=45deg"
+    ],
+    "unknowns": [
+      "time"
+    ],
+    "constraints": [
+      "vx constant",
+      "vy=gt",
+      "tan(phi)=vy/vx"
+    ],
+    "needs_symbolic_solver": false,
+    "needs_diagram_geometry": false,
+    "current_engine_status": "unsupported"
+  },
+  {
+    "pdf_id": "projectilenorm",
+    "source_pdf": "questions/projectilenorm.pdf",
+    "question_number": 6,
+    "page_start": 1,
+    "question_type": "mcq",
+    "question_text": "Q 6. A ball is projected from origin with speed 20 m/s at an angle 30 0 with x-axis. The x- coordinate of the ball at the instant when the velocity of the ball becomes perpendicular to the velocity of projection will be",
+    "options": [
+      "40sqrt3 m",
+      "40 m",
+      "20sqrt3 m",
+      "20 m"
+    ],
+    "expected_option_letter": "a",
+    "expected_answer": "40sqrt3 m",
+    "expected_units": null,
+    "requires_diagram": false,
+    "diagram_pages": [],
+    "projectile_subtype": "projectile_basic",
+    "requested_quantity": "x_coordinate_at_event",
+    "solver_status": "unclassified",
+    "notes": "",
+    "engine_case": "velocity_perpendicular_to_initial_event",
+    "knowns": [
+      "v0=20m/s",
+      "angle=30deg"
+    ],
+    "unknowns": [
+      "x_event"
+    ],
+    "constraints": [
+      "v(t) dot v0 = 0",
+      "x=vx*t"
+    ],
+    "needs_symbolic_solver": false,
+    "needs_diagram_geometry": false,
+    "current_engine_status": "unsupported"
+  },
+  {
+    "pdf_id": "projectilenorm",
+    "source_pdf": "questions/projectilenorm.pdf",
+    "question_number": 7,
+    "page_start": 2,
+    "question_type": "mcq",
+    "question_text": "Q 7. If the angle of projection of a particle from the horizontal is doubled keeping the speed of projection same, the particle strikes the same target on the ground, then the ratio of time of flight in the two cases will be",
+    "options": [
+      "1 : 1",
+      "1 : 2",
+      "2 : sqrt3",
+      "1 : sqrt3"
+    ],
+    "expected_option_letter": "d",
+    "expected_answer": "1 : sqrt3",
+    "expected_units": null,
+    "requires_diagram": false,
+    "diagram_pages": [],
+    "projectile_subtype": "projectile_angle_pair",
+    "requested_quantity": "time_of_flight_ratio",
+    "solver_status": "unclassified",
+    "notes": "",
+    "engine_case": "same_range_doubled_angle_time_ratio",
+    "knowns": [],
+    "unknowns": [
+      "T1/T2"
+    ],
+    "constraints": [
+      "same range",
+      "second angle is double first",
+      "sin(2theta)=sin(4theta)"
+    ],
+    "needs_symbolic_solver": true,
+    "needs_diagram_geometry": false,
+    "current_engine_status": "partial"
+  },
+  {
+    "pdf_id": "projectilenorm",
+    "source_pdf": "questions/projectilenorm.pdf",
+    "question_number": 8,
+    "page_start": 2,
+    "question_type": "mcq",
+    "question_text": "Q 8. A projectile is aimed at a mark on a horizontal plane through the point of projection and falls 6 m short when its elevation is 300 but overshoot the mark by 9 m when its elevation is 450. The angle of elevation of projectile to hit the target on the horiz ontal plane",
+    "options": [
+      "sin-1 [ 1 5 ( 3sqrt3 2 + 2)]",
+      "cos-1 [ 1 5 ( 3sqrt3 2 + 2)]",
+      "1 2 cos-1 [ 1 5 ( 3sqrt3 2 + 2)]",
+      "1 2 s𝑖𝑛-1 [ 1 5 ( 3sqrt3 2 + 2)]"
+    ],
+    "expected_option_letter": "d",
+    "expected_answer": "1 2 s𝑖𝑛-1 [ 1 5 ( 3sqrt3 2 + 2)]",
+    "expected_units": null,
+    "requires_diagram": false,
+    "diagram_pages": [],
+    "projectile_subtype": "projectile_target_angle",
+    "requested_quantity": "launch_angle_to_hit_target",
+    "solver_status": "unclassified",
+    "notes": "",
+    "engine_case": "target_angle_from_short_overshoot",
+    "knowns": [
+      "undershoot=6m at 30deg",
+      "overshoot=9m at 45deg"
+    ],
+    "unknowns": [
+      "hit_angle"
+    ],
+    "constraints": [
+      "same speed",
+      "range at 30deg is target-6",
+      "range at 45deg is target+9"
+    ],
+    "needs_symbolic_solver": true,
+    "needs_diagram_geometry": false,
+    "current_engine_status": "unsupported"
+  },
+  {
+    "pdf_id": "projectilenorm",
+    "source_pdf": "questions/projectilenorm.pdf",
+    "question_number": 9,
+    "page_start": 2,
+    "question_type": "mcq",
+    "question_text": "Q 9. A batsman hits a ball at an angle of 300 to the horizontal with an initial speed of 15 m/s. A fielder 70 m away in the direction of the hit starts immediately to catch the ball. The speed with which the fielder should run so as to catch the ball just before it touches the ground is",
+    "options": [
+      "10 m/s",
+      "33 m/s",
+      "6.5 m/s",
+      "13 m/s"
+    ],
+    "expected_option_letter": "b",
+    "expected_answer": "33 m/s",
+    "expected_units": null,
+    "requires_diagram": false,
+    "diagram_pages": [],
+    "projectile_subtype": "projectile_moving_observer",
+    "requested_quantity": "fielder_speed",
+    "solver_status": "unclassified",
+    "notes": "",
+    "engine_case": "fielder_catch_before_ground",
+    "knowns": [
+      "v0=15m/s",
+      "angle=30deg",
+      "fielder_distance=70m"
+    ],
+    "unknowns": [
+      "fielder_speed"
+    ],
+    "constraints": [
+      "range of ball",
+      "time of flight",
+      "fielder covers remaining distance"
+    ],
+    "needs_symbolic_solver": false,
+    "needs_diagram_geometry": false,
+    "current_engine_status": "unsupported"
+  },
+  {
+    "pdf_id": "projectilenorm",
+    "source_pdf": "questions/projectilenorm.pdf",
+    "question_number": 10,
+    "page_start": 2,
+    "question_type": "mcq",
+    "question_text": "Q 10. A particle is projected from the ground with an initial speed of v at an angle θ with horizontal. The average velocity of the particle between its point of projection and highest point of trajectory is :",
+    "options": [
+      "𝑣 2 sqrt1 + 2 𝑐𝑜𝑠2 𝜃",
+      "𝑣 2 sqrt1 + 𝑐𝑜𝑠2 𝜃",
+      "𝑣 2 sqrt1 + 3 𝑐𝑜𝑠2 𝜃",
+      "𝑣 cos 𝜃"
+    ],
+    "expected_option_letter": "c",
+    "expected_answer": "𝑣 2 sqrt1 + 3 𝑐𝑜𝑠2 𝜃",
+    "expected_units": null,
+    "requires_diagram": false,
+    "diagram_pages": [],
+    "projectile_subtype": "projectile_basic_symbolic",
+    "requested_quantity": "average_velocity_magnitude_to_peak",
+    "solver_status": "unclassified",
+    "notes": "",
+    "engine_case": "average_velocity_to_peak",
+    "knowns": [
+      "v0=v",
+      "angle=theta"
+    ],
+    "unknowns": [
+      "|v_avg|"
+    ],
+    "constraints": [
+      "displacement to highest point",
+      "time to highest point",
+      "average velocity = displacement/time"
+    ],
+    "needs_symbolic_solver": true,
+    "needs_diagram_geometry": false,
+    "current_engine_status": "unsupported"
+  },
+  {
+    "pdf_id": "projectilenorm",
+    "source_pdf": "questions/projectilenorm.pdf",
+    "question_number": 11,
+    "page_start": 2,
+    "question_type": "mcq",
+    "question_text": "Q 11. The horizontal range and maximum height attained by a projectile are Rand H respectively. If a constant horizontal acceleration a = 𝑔 4 is imparted to the projectile due to wind, then its horizontal range and maximum height will be:",
+    "options": [
+      "(R + H), 𝐻 2",
+      "(𝑅 + 𝐻 2) , 2𝐻",
+      "(R + 2H), H",
+      "(R + H), H"
+    ],
+    "expected_option_letter": "d",
+    "expected_answer": "(R + H), H",
+    "expected_units": null,
+    "requires_diagram": false,
+    "diagram_pages": [],
+    "projectile_subtype": "projectile_with_wind_acceleration",
+    "requested_quantity": "modified_range_and_height",
+    "solver_status": "unclassified",
+    "notes": "",
+    "engine_case": "projectile_with_horizontal_acceleration",
+    "knowns": [
+      "original_range=R",
+      "original_max_height=H",
+      "ax=g/4"
+    ],
+    "unknowns": [
+      "new_range",
+      "new_height"
+    ],
+    "constraints": [
+      "ax=g/4",
+      "vertical motion unchanged",
+      "horizontal displacement gains 0.5*a*T^2"
+    ],
+    "needs_symbolic_solver": true,
+    "needs_diagram_geometry": false,
+    "current_engine_status": "unsupported"
+  },
+  {
+    "pdf_id": "projectilenorm",
+    "source_pdf": "questions/projectilenorm.pdf",
+    "question_number": 12,
+    "page_start": 2,
+    "question_type": "mcq",
+    "question_text": "Q 12. In a projectile motion let tOA = t1 and tAB = t2. The horizontal displacement from O to A is R1 and from A to B is R2. Maximum height is H and time of flight is T. If air drag is to be considered, then choose the correct alternative(s).",
+    "options": [
+      "𝑡1 will decrease while 𝑡2 will increase",
+      "H will increase",
+      "𝑅1 will decrease while 𝑅2 will increase",
+      "None of these"
+    ],
+    "expected_option_letter": "a",
+    "expected_answer": "𝑡1 will decrease while 𝑡2 will increase",
+    "expected_units": null,
+    "requires_diagram": false,
+    "diagram_pages": [],
+    "projectile_subtype": "projectile_with_drag_conceptual",
+    "requested_quantity": "correct_qualitative_statement",
+    "solver_status": "unclassified",
+    "notes": "Conceptual drag question; not solvable by no-drag deterministic projectile equations.",
+    "engine_case": "air_drag_conceptual_timing",
+    "knowns": [],
+    "unknowns": [
+      "qualitative_effect"
+    ],
+    "constraints": [
+      "air drag changes ascent/descent timing and range"
+    ],
+    "needs_symbolic_solver": false,
+    "needs_diagram_geometry": false,
+    "current_engine_status": "unsupported"
+  },
+  {
+    "pdf_id": "projectilenorm",
+    "source_pdf": "questions/projectilenorm.pdf",
+    "question_number": 13,
+    "page_start": 3,
+    "question_type": "mcq",
+    "question_text": "Q 13. A ball is projected from 10 m heigh tower with initial speed 10 m/s. Find maximum possible range on ground?",
+    "options": [
+      "10sqrt3 m",
+      "5(1 + sqrt5)m",
+      "5sqrt5 m",
+      "none of these"
+    ],
+    "expected_option_letter": "a",
+    "expected_answer": "10sqrt3 m",
+    "expected_units": null,
+    "requires_diagram": false,
+    "diagram_pages": [],
+    "projectile_subtype": "projectile_launch_from_height",
+    "requested_quantity": "maximum_ground_range",
+    "solver_status": "unclassified",
+    "notes": "",
+    "engine_case": "max_range_from_height_fixed_speed",
+    "knowns": [
+      "height=10m",
+      "v0=10m/s"
+    ],
+    "unknowns": [
+      "max_range"
+    ],
+    "constraints": [
+      "optimize range over launch angle",
+      "landing y=0"
+    ],
+    "needs_symbolic_solver": true,
+    "needs_diagram_geometry": false,
+    "current_engine_status": "partial"
+  },
+  {
+    "pdf_id": "projectileinc",
+    "source_pdf": "questions/projectileinc.pdf",
+    "question_number": 1,
+    "page_start": 1,
+    "question_type": "mcq",
+    "question_text": "Q 1. On an inclined plane of inclination 30deg, a ball is thrown at an angle of 60deg with the horizontal from the foot of the incline with a velocity of 10sqrt3 m/s. If g = 10 m/𝑠2, hen find the time in which ball will hit the inclined plane?",
+    "options": [
+      "1 s",
+      "2 s",
+      "3 s",
+      "4 s"
+    ],
+    "expected_option_letter": "b",
+    "expected_answer": "2 s",
+    "expected_units": null,
+    "requires_diagram": false,
+    "diagram_pages": [],
+    "projectile_subtype": "projectile_inclined",
+    "requested_quantity": "time_to_hit_incline",
+    "solver_status": "unclassified",
+    "notes": "",
+    "engine_case": "inclined_plane_impact_time",
+    "knowns": [
+      "incline=30deg",
+      "launch_angle_horizontal=60deg",
+      "v0=10sqrt3m/s",
+      "g=10m/s^2"
+    ],
+    "unknowns": [
+      "time"
+    ],
+    "constraints": [
+      "trajectory intersects y=x*tan(alpha)"
+    ],
+    "needs_symbolic_solver": false,
+    "needs_diagram_geometry": false,
+    "current_engine_status": "partial"
+  },
+  {
+    "pdf_id": "projectileinc",
+    "source_pdf": "questions/projectileinc.pdf",
+    "question_number": 2,
+    "page_start": 1,
+    "question_type": "mcq",
+    "question_text": "Q 2. Two bodies are projected from the same point with equal speeds in such a directions that they strike on the same point on a plane whose inclination is b. If a the angle of projection of the first, ratio of there times of flight is",
+    "options": [
+      "sin 𝛼 cos 𝛽",
+      "sin 𝛼 sin 𝛽",
+      "sin(𝛼-𝛽) cos 𝛽",
+      "sin(𝛼-𝛽) cos 𝛼"
+    ],
+    "expected_option_letter": "d",
+    "expected_answer": "sin(𝛼-𝛽) cos 𝛼",
+    "expected_units": null,
+    "requires_diagram": false,
+    "diagram_pages": [],
+    "projectile_subtype": "projectile_inclined_symbolic",
+    "requested_quantity": "time_of_flight_ratio",
+    "solver_status": "unclassified",
+    "notes": "",
+    "engine_case": "inclined_plane_same_point_time_ratio",
+    "knowns": [
+      "incline_angle=beta",
+      "first_launch_angle=alpha"
+    ],
+    "unknowns": [
+      "T1/T2"
+    ],
+    "constraints": [
+      "same launch speed",
+      "same impact point on inclined plane"
+    ],
+    "needs_symbolic_solver": true,
+    "needs_diagram_geometry": false,
+    "current_engine_status": "unsupported"
+  },
+  {
+    "pdf_id": "projectileinc",
+    "source_pdf": "questions/projectileinc.pdf",
+    "question_number": 3,
+    "page_start": 1,
+    "question_type": "diagram_mcq",
+    "question_text": "Q 3. A baseball is projected with a velocity v making an angle theta with the incline of indication alpha as shown in fig. Find the condition that the ball hits the incline at right angle.",
+    "options": [
+      "cot theta = 2 tan alpha",
+      "sin theta = cos alpha",
+      "tan theta = sin alpha",
+      "cot theta = cos alpha"
+    ],
+    "expected_option_letter": "a",
+    "expected_answer": "cot theta = 2 tan alpha",
+    "expected_units": null,
+    "requires_diagram": true,
+    "diagram_pages": [
+      1
+    ],
+    "projectile_subtype": "projectile_inclined_symbolic",
+    "requested_quantity": "condition_for_right_angle_impact",
+    "solver_status": "unclassified",
+    "notes": "",
+    "engine_case": "inclined_plane_right_angle_impact_condition",
+    "knowns": [
+      "incline_angle=alpha",
+      "launch_angle_to_incline=theta"
+    ],
+    "unknowns": [
+      "relation_between_theta_alpha"
+    ],
+    "constraints": [
+      "impact velocity perpendicular to incline"
+    ],
+    "needs_symbolic_solver": true,
+    "needs_diagram_geometry": true,
+    "current_engine_status": "unsupported"
+  },
+  {
+    "pdf_id": "projectileinc",
+    "source_pdf": "questions/projectileinc.pdf",
+    "question_number": 4,
+    "page_start": 1,
+    "question_type": "mcq",
+    "question_text": "Q 4. A projectile is required to hit a target whose coordinates relative to horizontal and vertical axes through the point of projection are (alpha, beta). If the gun velocity is sqrt2galpha, it is impossible to hit the target if",
+    "options": [
+      "beta > 3alpha/4",
+      "beta  1alpha/4",
+      "beta <= 3alpha/4",
+      "beta  3alpha/4"
+    ],
+    "expected_option_letter": "a",
+    "expected_answer": "beta > 3alpha/4",
+    "expected_units": null,
+    "requires_diagram": false,
+    "diagram_pages": [],
+    "projectile_subtype": "projectile_target_reachability",
+    "requested_quantity": "impossible_target_condition",
+    "solver_status": "unclassified",
+    "notes": "",
+    "engine_case": "target_reachability_fixed_speed",
+    "knowns": [
+      "target=(alpha,beta)",
+      "v0=sqrt(2g alpha)"
+    ],
+    "unknowns": [
+      "reachability_condition"
+    ],
+    "constraints": [
+      "trajectory through (alpha,beta)",
+      "fixed speed sqrt(2g alpha)",
+      "real launch angle condition"
+    ],
+    "needs_symbolic_solver": true,
+    "needs_diagram_geometry": false,
+    "current_engine_status": "unsupported"
+  },
+  {
+    "pdf_id": "projectileinc",
+    "source_pdf": "questions/projectileinc.pdf",
+    "question_number": 5,
+    "page_start": 1,
+    "question_type": "mcq",
+    "question_text": "Q 5. A marble rolls down from top of a staircase with constant horizontal velocity 10 m/s. If each step is y = 1 meter high and x = 1 meter wide. To which step the marble will strike directly? (g = 9.8 m/𝑠2)",
+    "options": [
+      "21st",
+      "8th",
+      "10th",
+      "18th"
+    ],
+    "expected_option_letter": "a",
+    "expected_answer": "21st",
+    "expected_units": null,
+    "requires_diagram": false,
+    "diagram_pages": [],
+    "projectile_subtype": "projectile_staircase",
+    "requested_quantity": "step_number_hit",
+    "solver_status": "unclassified",
+    "notes": "",
+    "engine_case": "staircase_collision",
+    "knowns": [
+      "vx=10m/s",
+      "step_height=1m",
+      "step_width=1m",
+      "g=9.8m/s^2"
+    ],
+    "unknowns": [
+      "step_number"
+    ],
+    "constraints": [
+      "horizontal throw",
+      "stair tread/riser geometry",
+      "first collision with step boundary"
+    ],
+    "needs_symbolic_solver": false,
+    "needs_diagram_geometry": true,
+    "current_engine_status": "unsupported"
+  },
+  {
+    "pdf_id": "projectileinc",
+    "source_pdf": "questions/projectileinc.pdf",
+    "question_number": 6,
+    "page_start": 2,
+    "question_type": "mcq",
+    "question_text": "Q 6. A particle is projected from origin of coordinate system. A target is fixed at point (40m, 30m). Find the minimum velocity of projectile to hit the target? (g = 10 m/𝑠2)",
+    "options": [
+      "10 𝑚/𝑠",
+      "17 𝑚/𝑠",
+      "20sqrt2 𝑚/𝑠",
+      "10sqrt5 𝑚/𝑠"
+    ],
+    "expected_option_letter": "c",
+    "expected_answer": "20sqrt2 𝑚/𝑠",
+    "expected_units": null,
+    "requires_diagram": false,
+    "diagram_pages": [],
+    "projectile_subtype": "projectile_target_min_speed",
+    "requested_quantity": "minimum_launch_speed",
+    "solver_status": "unclassified",
+    "notes": "",
+    "engine_case": "minimum_speed_to_hit_target",
+    "knowns": [
+      "target=(40m,30m)",
+      "g=10m/s^2"
+    ],
+    "unknowns": [
+      "min_v0"
+    ],
+    "constraints": [
+      "target point",
+      "optimize over angle"
+    ],
+    "needs_symbolic_solver": true,
+    "needs_diagram_geometry": false,
+    "current_engine_status": "unsupported"
+  },
+  {
+    "pdf_id": "projectileinc",
+    "source_pdf": "questions/projectileinc.pdf",
+    "question_number": 7,
+    "page_start": 2,
+    "question_type": "diagram_mcq",
+    "question_text": "Q 7. A particle is projected at an angle θ with an inclined plane making an angle β with the horizontal as shown in figure, speed of the particle is u, after time t find y component of velocity when particle is at maximum distance from the incline plane ?",
+    "options": [
+      "𝑢 sqrt2",
+      "2𝑢 sqrt3",
+      "sqrt2𝑢 3",
+      "zero"
+    ],
+    "expected_option_letter": "d",
+    "expected_answer": "zero",
+    "expected_units": null,
+    "requires_diagram": true,
+    "diagram_pages": [
+      2
+    ],
+    "projectile_subtype": "projectile_inclined_components",
+    "requested_quantity": "normal_velocity_component_at_max_distance",
+    "solver_status": "unclassified",
+    "notes": "",
+    "engine_case": "inclined_plane_max_normal_distance_velocity_component",
+    "knowns": [
+      "speed=u",
+      "launch_angle_to_incline=theta",
+      "incline_angle=beta"
+    ],
+    "unknowns": [
+      "y_component_velocity"
+    ],
+    "constraints": [
+      "maximum perpendicular distance from incline",
+      "normal velocity component is zero"
+    ],
+    "needs_symbolic_solver": false,
+    "needs_diagram_geometry": true,
+    "current_engine_status": "unsupported"
+  },
+  {
+    "pdf_id": "projectileinc",
+    "source_pdf": "questions/projectileinc.pdf",
+    "question_number": 8,
+    "page_start": 2,
+    "question_type": "diagram_mcq",
+    "question_text": "Q 8. A ball is projected from point A with a velocity 10 m/s perpendicular to the inclined plane as shown in figure. Range of the ball on the inclined plane is :",
+    "options": [
+      "40 3 m",
+      "20 13 m",
+      "13 20 m",
+      "13 40 m"
+    ],
+    "expected_option_letter": "a",
+    "expected_answer": "40 3 m",
+    "expected_units": null,
+    "requires_diagram": true,
+    "diagram_pages": [
+      2
+    ],
+    "projectile_subtype": "projectile_inclined",
+    "requested_quantity": "range_on_incline",
+    "solver_status": "unclassified",
+    "notes": "",
+    "engine_case": "perpendicular_launch_range_on_incline",
+    "knowns": [
+      "v0=10m/s",
+      "launch perpendicular to plane"
+    ],
+    "unknowns": [
+      "range_on_incline"
+    ],
+    "constraints": [
+      "launch perpendicular to incline",
+      "impact with incline"
+    ],
+    "needs_symbolic_solver": false,
+    "needs_diagram_geometry": true,
+    "current_engine_status": "partial"
+  },
+  {
+    "pdf_id": "projectileinc",
+    "source_pdf": "questions/projectileinc.pdf",
+    "question_number": 9,
+    "page_start": 3,
+    "question_type": "mcq",
+    "question_text": "Q 9. A plane surface is inclined making an angle θ with the horizontal. From the bottom of this inclined plane, a bullet is fired with velocity v. The maximum possible range of the bullet on the inclined plane is",
+    "options": [
+      "𝑉2 𝑔",
+      "𝑉2 𝑔(1+sin 𝜃)",
+      "𝑉2 𝑔(1-sin 𝜃)",
+      "𝑉2 𝑔(1+cos 𝜃)"
+    ],
+    "expected_option_letter": "b",
+    "expected_answer": "𝑉2 𝑔(1+sin 𝜃)",
+    "expected_units": null,
+    "requires_diagram": false,
+    "diagram_pages": [],
+    "projectile_subtype": "projectile_inclined_symbolic",
+    "requested_quantity": "maximum_range_on_incline",
+    "solver_status": "unclassified",
+    "notes": "",
+    "engine_case": "max_range_on_incline",
+    "knowns": [
+      "incline_angle=theta",
+      "v0=v"
+    ],
+    "unknowns": [
+      "max_range"
+    ],
+    "constraints": [
+      "optimize incline range over launch angle"
+    ],
+    "needs_symbolic_solver": true,
+    "needs_diagram_geometry": false,
+    "current_engine_status": "partial"
+  },
+  {
+    "pdf_id": "projectileinc",
+    "source_pdf": "questions/projectileinc.pdf",
+    "question_number": 10,
+    "page_start": 3,
+    "question_type": "mcq",
+    "question_text": "Q 10. A ball is projected horizontal with a speed v from the top of a plane inclined at an angle 45deg with the horizontal. How far from the point of projection with the ball strike the plane?",
+    "options": [
+      "𝑉2 𝑔",
+      "sqrt2 𝑉2 𝑔",
+      "2𝑉2 𝑔",
+      "sqrt2 [ 2𝑉2 𝑔 ]"
+    ],
+    "expected_option_letter": "d",
+    "expected_answer": "sqrt2 [ 2𝑉2 𝑔 ]",
+    "expected_units": null,
+    "requires_diagram": false,
+    "diagram_pages": [],
+    "projectile_subtype": "projectile_inclined",
+    "requested_quantity": "distance_along_incline_to_impact",
+    "solver_status": "unclassified",
+    "notes": "",
+    "engine_case": "horizontal_launch_onto_incline_distance",
+    "knowns": [
+      "vx=v",
+      "incline_angle=45deg"
+    ],
+    "unknowns": [
+      "impact_distance_along_plane"
+    ],
+    "constraints": [
+      "horizontal launch from top",
+      "intersect falling trajectory with 45deg incline"
+    ],
+    "needs_symbolic_solver": true,
+    "needs_diagram_geometry": false,
+    "current_engine_status": "unsupported"
+  },
+  {
+    "pdf_id": "projectileinc",
+    "source_pdf": "questions/projectileinc.pdf",
+    "question_number": 11,
+    "page_start": 3,
+    "question_type": "diagram_mcq",
+    "question_text": "Q 11. Two inclined planes OA and OB having inclination with horizontal) 30deg and 60deg respectively, intersect each other at O as shown in figure. A particle is projected from point P with velocity 𝑢 = 10sqrt3 m/s Along a direction pe rpendicular to plane OA. If the particle strikes plane OB perpendicularly at Q, calculate Velocity with which particle strikes the plane OB? (g = 10 m/𝑠2)",
+    "options": [
+      "10 m/s",
+      "10sqrt3 m/s",
+      "sqrt3 m/s",
+      "5sqrt3 m/s"
+    ],
+    "expected_option_letter": "a",
+    "expected_answer": "10 m/s",
+    "expected_units": null,
+    "requires_diagram": true,
+    "diagram_pages": [
+      3
+    ],
+    "projectile_subtype": "projectile_inclined_multi_surface",
+    "requested_quantity": "impact_speed",
+    "solver_status": "unclassified",
+    "notes": "",
+    "engine_case": "two_inclines_perpendicular_launch_impact",
+    "knowns": [
+      "plane_OA=30deg",
+      "plane_OB=60deg",
+      "u=10sqrt3m/s"
+    ],
+    "unknowns": [
+      "impact_speed"
+    ],
+    "constraints": [
+      "launch perpendicular to first plane",
+      "impact perpendicular to second plane"
+    ],
+    "needs_symbolic_solver": false,
+    "needs_diagram_geometry": true,
+    "current_engine_status": "unsupported"
+  },
+  {
+    "pdf_id": "projectileinc",
+    "source_pdf": "questions/projectileinc.pdf",
+    "question_number": 12,
+    "page_start": 3,
+    "question_type": "diagram_mcq",
+    "question_text": "Q 12. A particle P is projected from a point on the surface of smooth inclined plane (see figure). Simultaneously another particle Q is released on the smooth inclined plane from the same position. P and Q collide after t = 4 second. The speed of projection of P is :- u B A P Q h 30deg 60deg O",
+    "options": [
+      "5 m/s",
+      "10 m/s",
+      "15 m/s",
+      "20 m/s"
+    ],
+    "expected_option_letter": "b",
+    "expected_answer": "10 m/s",
+    "expected_units": null,
+    "requires_diagram": true,
+    "diagram_pages": [
+      3
+    ],
+    "projectile_subtype": "projectile_inclined_relative_motion",
+    "requested_quantity": "projection_speed",
+    "solver_status": "unclassified",
+    "notes": "",
+    "engine_case": "projectile_collides_with_sliding_particle_on_incline",
+    "knowns": [
+      "collision_time=4s",
+      "incline=60deg"
+    ],
+    "unknowns": [
+      "projection_speed"
+    ],
+    "constraints": [
+      "projectile P",
+      "particle Q slides on smooth incline",
+      "collision after 4s"
+    ],
+    "needs_symbolic_solver": false,
+    "needs_diagram_geometry": true,
+    "current_engine_status": "unsupported"
+  },
+  {
+    "pdf_id": "projectileinc",
+    "source_pdf": "questions/projectileinc.pdf",
+    "question_number": 13,
+    "page_start": 4,
+    "question_type": "mcq",
+    "question_text": "Q 13. A ball is projected on smooth inclined plane in direction perpendicular to line of greatest slope with velocity of 8m/s. Find it's speed after 1 sec.",
+    "options": [
+      "10 m/s",
+      "12 m/s",
+      "15 m/s",
+      "20 m/s"
+    ],
+    "expected_option_letter": "a",
+    "expected_answer": "10 m/s",
+    "expected_units": null,
+    "requires_diagram": false,
+    "diagram_pages": [],
+    "projectile_subtype": "inclined_plane_kinematics",
+    "requested_quantity": "speed_after_time",
+    "solver_status": "unclassified",
+    "notes": "",
+    "engine_case": "motion_on_smooth_incline_perpendicular_to_slope",
+    "knowns": [
+      "initial_speed=8m/s",
+      "time=1s"
+    ],
+    "unknowns": [
+      "speed_after_1s"
+    ],
+    "constraints": [
+      "initial velocity perpendicular to line of greatest slope",
+      "acceleration down incline"
+    ],
+    "needs_symbolic_solver": false,
+    "needs_diagram_geometry": true,
+    "current_engine_status": "unsupported"
+  },
+  {
+    "pdf_id": "projectileinc",
+    "source_pdf": "questions/projectileinc.pdf",
+    "question_number": 14,
+    "page_start": 4,
+    "question_type": "mcq",
+    "question_text": "Q 14. A particle is projected from a point P(2,0,0)m with a velocity 10m/s making an angle 45deg with the horizontal. The plane of projectile motion passes through a horizontal line PQ which makes an angle of 37deg with positive x -axis, xy plane is horizontal. The coordinates of the point where the particle will strike the li ne PQ is : -(take g = 10 m/𝑠2)",
+    "options": [
+      "(10,6,0)m",
+      "(8,6,0)m",
+      "(10,8,0)m",
+      "(6,10,0)m"
+    ],
+    "expected_option_letter": "a",
+    "expected_answer": "(10,6,0)m",
+    "expected_units": null,
+    "requires_diagram": false,
+    "diagram_pages": [],
+    "projectile_subtype": "projectile_3d",
+    "requested_quantity": "impact_coordinates_on_horizontal_line",
+    "solver_status": "unclassified",
+    "notes": "",
+    "engine_case": "three_dimensional_projectile_line_intersection",
+    "knowns": [
+      "P=(2,0,0)m",
+      "v0=10m/s",
+      "launch_angle=45deg",
+      "line_angle=37deg",
+      "g=10m/s^2"
+    ],
+    "unknowns": [
+      "impact_coordinates"
+    ],
+    "constraints": [
+      "3D launch plane contains horizontal line PQ",
+      "intersect projectile with y=0 horizontal line direction"
+    ],
+    "needs_symbolic_solver": false,
+    "needs_diagram_geometry": true,
+    "current_engine_status": "unsupported"
+  }
+]
