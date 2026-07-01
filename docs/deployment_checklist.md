@@ -64,14 +64,15 @@ python3 scripts/validate_projectile_manifest.py
 Required batch:
 
 ```bash
+export PHYSICA_SCREENSHOT_DIR="${PHYSICA_SCREENSHOT_DIR:-$HOME/Desktop}"
 python3 scripts/review_walkthrough_sync_batch.py \
-  "/Users/siddharth/Desktop/Screenshot 2026-05-25 at 9.44.11 PM.png" \
-  "/Users/siddharth/Desktop/Screenshot 2026-05-25 at 9.44.18 PM.png" \
-  "/Users/siddharth/Desktop/Screenshot 2026-05-25 at 9.44.24 PM.png" \
-  "/Users/siddharth/Desktop/Screenshot 2026-05-25 at 9.44.30 PM.png" \
-  "/Users/siddharth/Desktop/Screenshot 2026-05-25 at 9.44.36 PM.png" \
-  "/Users/siddharth/Desktop/Screenshot 2026-05-25 at 9.44.42 PM.png" \
-  "/Users/siddharth/Desktop/Screenshot 2026-05-25 at 12.41.58 PM.png"
+  "$PHYSICA_SCREENSHOT_DIR/Screenshot 2026-05-25 at 9.44.11 PM.png" \
+  "$PHYSICA_SCREENSHOT_DIR/Screenshot 2026-05-25 at 9.44.18 PM.png" \
+  "$PHYSICA_SCREENSHOT_DIR/Screenshot 2026-05-25 at 9.44.24 PM.png" \
+  "$PHYSICA_SCREENSHOT_DIR/Screenshot 2026-05-25 at 9.44.30 PM.png" \
+  "$PHYSICA_SCREENSHOT_DIR/Screenshot 2026-05-25 at 9.44.36 PM.png" \
+  "$PHYSICA_SCREENSHOT_DIR/Screenshot 2026-05-25 at 9.44.42 PM.png" \
+  "$PHYSICA_SCREENSHOT_DIR/Screenshot 2026-05-25 at 12.41.58 PM.png"
 ```
 
 Acceptance:

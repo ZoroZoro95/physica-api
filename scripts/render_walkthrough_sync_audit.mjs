@@ -90,6 +90,22 @@ async function main() {
         failures.push(`${stepId}: trajectory visibility expected=${Boolean(probe.expected_show_trajectory)} rendered=${showTrajectory}.`);
       }
 
+      const templateKind = await board.first().getAttribute("data-audit-template-kind");
+      const thetaDeg = Number(await board.first().getAttribute("data-audit-template-theta-deg"));
+      if (Number.isFinite(thetaDeg)) {
+        if (templateKind === "launch-components") {
+          await assertTemplateLineAngle({ board, stepId, lineId: "launch-u", expectedDeg: signedAngle(thetaDeg), failures });
+        }
+        if (templateKind === "descent-components") {
+          await assertTemplateLineAngle({ board, stepId, lineId: "descent-u", expectedDeg: -Math.abs(signedAngle(thetaDeg) || 35), failures });
+        }
+      }
+      if (String(templateKind ?? "").startsWith("monkey-hunter-")) {
+        await assertRenderedEntity({ board, stepId, entityId: "monkey", failures });
+        await assertRenderedEntity({ board, stepId, entityId: "hunter", failures });
+        await assertTemplateLineExists({ board, stepId, lineId: "monkey-hunter-aim-line", failures });
+      }
+
       if (args.screenshotDir) {
         await fs.mkdir(args.screenshotDir, { recursive: true });
         const safeStep = stepId.replace(/[^a-z0-9_-]+/gi, "_").slice(0, 80);
@@ -165,6 +181,44 @@ function csv(value) {
     .split(",")
     .map(item => item.trim())
     .filter(Boolean);
+}
+
+async function assertRenderedEntity({ board, stepId, entityId, failures }) {
+  const count = await board.locator(`[data-audit-entity=${JSON.stringify(entityId)}]`).count();
+  if (count < 1) failures.push(`${stepId}: expected visible entity ${entityId}.`);
+}
+
+async function assertTemplateLineExists({ board, stepId, lineId, failures }) {
+  const count = await board.locator(`[data-audit-template-line-id=${JSON.stringify(lineId)}]`).count();
+  if (count < 1) failures.push(`${stepId}: expected template line ${lineId}.`);
+}
+
+async function assertTemplateLineAngle({ board, stepId, lineId, expectedDeg, failures }) {
+  const line = board.locator(`[data-audit-template-line-id=${JSON.stringify(lineId)}]`);
+  const count = await line.count();
+  if (count !== 1) {
+    failures.push(`${stepId}: expected one template line ${lineId}, found ${count}.`);
+    return;
+  }
+  const actualDeg = Number(await line.first().getAttribute("data-audit-template-angle-deg"));
+  if (!Number.isFinite(actualDeg)) {
+    failures.push(`${stepId}: template line ${lineId} has no numeric angle audit attribute.`);
+    return;
+  }
+  const delta = angleDeltaDeg(actualDeg, expectedDeg);
+  if (delta > 2.0) {
+    failures.push(`${stepId}: template line ${lineId} angle=${actualDeg}deg, expected ${expectedDeg}deg from question theta.`);
+  }
+}
+
+function signedAngle(degrees) {
+  if (!Number.isFinite(degrees)) return 0;
+  const normalized = ((degrees % 360) + 360) % 360;
+  return normalized > 180 ? normalized - 360 : normalized;
+}
+
+function angleDeltaDeg(left, right) {
+  return Math.abs(signedAngle(left - right));
 }
 
 main().catch(error => {

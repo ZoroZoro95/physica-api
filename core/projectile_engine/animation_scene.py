@@ -35,6 +35,10 @@ def build_animation_scene_spec(
         ratio_scene = _build_interception_ratio_scene(result=result, question_text=question_text, givens=merged_givens)
         if ratio_scene is not None:
             return finalize(ratio_scene)
+    if result.engine_case == "two_projectile_same_speed_comparison":
+        comparison_scene = _build_two_projectile_same_speed_comparison_scene(result=result, givens=merged_givens)
+        if comparison_scene is not None:
+            return finalize(comparison_scene)
     if result.engine_case == "staircase_collision":
         staircase_scene = _build_staircase_scene(result=result, question_text=question_text, givens=merged_givens)
         if staircase_scene is not None:
@@ -65,6 +69,10 @@ def build_animation_scene_spec(
         multi_scene = _build_two_projectile_collision_scene(result=result, spec_world=spec.world, givens=merged_givens)
         if multi_scene is not None:
             return finalize(multi_scene)
+    if result.engine_case == "monkey_hunter_condition":
+        monkey_scene = _build_monkey_hunter_scene(result=result, givens=merged_givens)
+        if monkey_scene is not None:
+            return finalize(monkey_scene)
 
     target = _point_from_givens(merged_givens, ["target"])
     u = _number_from_givens(merged_givens, ["v0", "u", "speed", "velocity"])
@@ -267,6 +275,151 @@ def _build_representative_scene_for_passed_case(
     if result.engine_case == "air_drag_conceptual_timing":
         return _build_air_drag_concept_scene(result=result)
     return _build_representative_projectile_scene(result=result, question_text=question_text, givens=givens)
+
+
+def _build_monkey_hunter_scene(*, result: EvaluationResult, givens: dict[str, str]) -> dict[str, Any]:
+    g = _number_from_givens(givens, ["g"]) or 10.0
+    height = _number_from_givens(givens, ["height", "h", "target_y", "y"]) or 45.0
+    speed = _number_from_givens(givens, ["v0", "u", "speed", "velocity"]) or 30.0
+    theta_from_given = _number_from_givens(givens, ["angle", "theta", "launch_angle"])
+    horizontal_distance = _number_from_givens(givens, ["horizontal_distance", "target_x", "x"])
+    line_of_sight = _number_from_givens(givens, ["line_of_sight", "los", "distance"])
+
+    fall_time = math.sqrt(max(0.0, 2 * height / g)) if g else 1.0
+    max_line_of_sight = speed * fall_time
+    if horizontal_distance is None and theta_from_given is not None:
+        tangent = math.tan(math.radians(theta_from_given))
+        if not math.isclose(tangent, 0.0, abs_tol=1e-9):
+            horizontal_distance = abs(height / tangent)
+    if horizontal_distance is None and line_of_sight is not None and line_of_sight > height:
+        horizontal_distance = math.sqrt(max(1.0, line_of_sight * line_of_sight - height * height))
+    if horizontal_distance is None:
+        representative_line = max(height * 1.42, min(max_line_of_sight * 0.72, height * 1.75))
+        horizontal_distance = math.sqrt(max(height, representative_line * representative_line - height * height))
+    if line_of_sight is None:
+        line_of_sight = math.hypot(horizontal_distance, height)
+
+    theta_deg = math.degrees(math.atan2(height, horizontal_distance))
+    ux = speed * horizontal_distance / max(line_of_sight, 1e-9)
+    uy = speed * height / max(line_of_sight, 1e-9)
+    arrival_time = line_of_sight / speed if speed > 0 else fall_time
+    hit_before_ground = arrival_time <= fall_time + 1e-9
+    duration = max(0.35, min(arrival_time, fall_time))
+
+    projectile_sampled = _sample_projectile_path(
+        y0=0.0,
+        ux=ux,
+        uy=uy,
+        g=g,
+        duration=duration,
+        count=36,
+        clamp_to_ground=True,
+    )
+    monkey_sampled = [
+        {"x": horizontal_distance, "y": max(0.0, height - 0.5 * g * point["t"] * point["t"]), "t": point["t"]}
+        for point in projectile_sampled
+    ]
+    current_monkey_y = monkey_sampled[-1]["y"] if monkey_sampled else height
+    hit_point = {
+        "x": horizontal_distance if hit_before_ground else projectile_sampled[-1]["x"],
+        "y": current_monkey_y if hit_before_ground else 0.0,
+        "label": "hit" if hit_before_ground else "ground first",
+    }
+    same_drop = max(0.0, height - current_monkey_y)
+
+    return {
+        "schema_version": 1,
+        "problem": {
+            "world": "monkey_hunter",
+            "unknown": _unknown_for_case(result.engine_case, ""),
+            "constraints": ["falling_target", "direct_aim", "same_gravity"],
+            "engine_case": result.engine_case,
+        },
+        "units": {"length": "m", "time": "s", "angle": "deg", "velocity": "m/s"},
+        "coordinate_frame": {"x": "horizontal", "y": "vertical", "origin": "hunter"},
+        "geometry": {
+            "points": {
+                "launch": {"x": 0.0, "y": 0.0, "label": "gun"},
+                "hunter": {"x": -2.0, "y": 0.0, "label": "hunter"},
+                "monkey_start": {"x": horizontal_distance, "y": height, "label": "monkey"},
+                "monkey_current": {"x": horizontal_distance, "y": current_monkey_y, "label": "monkey"},
+                "hit": hit_point,
+                "monkey_ground": {"x": horizontal_distance, "y": 0.0, "label": "ground"},
+            },
+            "surfaces": [
+                {"id": "ground", "type": "line", "from_xy": [-4.0, 0.0], "to_xy": [horizontal_distance + 8.0, 0.0], "label": "ground"},
+                {"id": "tree_trunk", "type": "tree", "from_xy": [horizontal_distance + 3.0, 0.0], "to_xy": [horizontal_distance + 3.0, height + 4.0], "label": "tree"},
+                {"id": "branch", "type": "branch", "from_xy": [horizontal_distance - 8.0, height], "to_xy": [horizontal_distance + 6.0, height], "label": "branch"},
+                {"id": "aim_line", "type": "aim_line", "from_xy": [0.0, 0.0], "to_xy": [horizontal_distance, height], "label": "direct aim line"},
+            ],
+            "obstacles": [{"id": "tree", "type": "tree", "x": horizontal_distance + 3.0, "height": height + 4.0}],
+            "axes": [
+                {"id": "x_axis", "direction": "horizontal"},
+                {"id": "y_axis", "direction": "vertical"},
+            ],
+        },
+        "actors": [
+            {"id": "hunter", "type": "person", "label": "hunter"},
+            {"id": "monkey", "type": "falling_target", "label": "monkey"},
+            {"id": "projectile", "type": "projectile", "label": "projectile"},
+        ],
+        "trajectories": [
+            {
+                "id": "trajectory:path",
+                "actor": "projectile",
+                "equation": "projectile follows the original aim line minus 1/2gt^2 drop",
+                "sampled_points": projectile_sampled,
+            },
+            {
+                "id": "trajectory:monkey_drop",
+                "actor": "monkey",
+                "equation": "monkey drop = 1/2gt^2",
+                "sampled_points": monkey_sampled,
+            },
+        ],
+        "motion": {
+            "actor": "projectile",
+            "kind": "constant_gravity_projectile",
+            "initial": {"x": 0.0, "y": 0.0, "vx": ux, "vy": uy},
+            "acceleration": {"x": 0.0, "y": -g},
+            "duration": duration,
+        },
+        "motions": [
+            {
+                "actor": "projectile",
+                "kind": "constant_gravity_projectile",
+                "initial": {"x": 0.0, "y": 0.0, "vx": ux, "vy": uy},
+                "acceleration": {"x": 0.0, "y": -g},
+                "duration": duration,
+            },
+            {
+                "actor": "monkey",
+                "kind": "vertical_free_fall",
+                "initial": {"x": horizontal_distance, "y": height, "vx": 0.0, "vy": 0.0},
+                "acceleration": {"x": 0.0, "y": -g},
+                "duration": duration,
+            },
+        ],
+        "quantities": {
+            "u": {"value": speed, "unit": "m/s", "label": "u"},
+            "theta": {"value": theta_deg, "unit": "deg", "label": "theta"},
+            "g": {"value": g, "unit": "m/s^2", "label": "g"},
+            "H": {"value": height, "unit": "m", "label": "monkey height"},
+            "T": {"value": duration, "unit": "s", "label": "arrival time"},
+            "T_fall": {"value": fall_time, "unit": "s", "label": "monkey fall time"},
+            "line_of_sight": {"value": line_of_sight, "unit": "m", "label": "line of sight"},
+            "drop_projectile": {"value": same_drop, "unit": "m", "label": "projectile drop"},
+            "drop_monkey": {"value": same_drop, "unit": "m", "label": "monkey drop"},
+        },
+        "events": [
+            {"id": "event:launch", "time": 0.0, "point": "launch", "label": "fire"},
+            {"id": "event:monkey_drop", "time": 0.0, "point": "monkey_start", "label": "monkey drops"},
+            {"id": "event:hit", "time": duration, "point": "hit", "label": "same drop"},
+            {"id": "event:monkey_ground", "time": fall_time, "point": "monkey_ground", "label": "monkey reaches ground"},
+        ],
+        "steps": _scene_steps(result),
+        "warnings": [] if hit_before_ground else ["Line-of-sight arrival is after monkey ground time; the diagram shows the limiting condition."],
+    }
 
 
 def _build_parametric_initial_speed_scene(*, result: EvaluationResult, givens: dict[str, str]) -> dict[str, Any]:
@@ -1424,6 +1577,112 @@ def _build_two_projectile_collision_scene(
     }
 
 
+def _build_two_projectile_same_speed_comparison_scene(
+    *,
+    result: EvaluationResult,
+    givens: dict[str, str],
+) -> dict[str, Any] | None:
+    u = _number_from_givens(givens, ["v0", "u", "speed", "velocity"])
+    angle1 = _number_from_givens(givens, ["angle1", "theta1", "angle_a"])
+    angle2 = _number_from_givens(givens, ["angle2", "theta2", "angle_b"])
+    if None in {u, angle1, angle2}:
+        return None
+    u = float(u)
+    angle1 = float(angle1)
+    angle2 = float(angle2)
+    g = _number_from_givens(givens, ["g"]) or 10.0
+
+    def components(angle_deg: float) -> tuple[float, float, float, float, float]:
+        theta = math.radians(angle_deg)
+        ux = u * math.cos(theta)
+        uy = u * math.sin(theta)
+        duration = max(0.001, 2 * uy / g)
+        horizontal_range = ux * duration
+        height = uy * uy / (2 * g)
+        return ux, uy, duration, horizontal_range, height
+
+    ux1, uy1, t1, r1, h1 = components(angle1)
+    ux2, uy2, t2, r2, h2 = components(angle2)
+    path1 = _sample_projectile_path(y0=0.0, ux=ux1, uy=uy1, g=g, duration=t1, count=34, x0=0.0)
+    path2 = _sample_projectile_path(y0=0.0, ux=ux2, uy=uy2, g=g, duration=t2, count=34, x0=0.0)
+    landing_x = max(r1, r2)
+    return {
+        "schema_version": 1,
+        "problem": {
+            "world": "multi_projectile",
+            "unknown": "time_height_range_comparison",
+            "constraints": ["same_speed", "same_height_landing", "compare_angles"],
+            "engine_case": result.engine_case,
+        },
+        "units": {"length": "m", "time": "s", "angle": "deg", "velocity": "m/s"},
+        "coordinate_frame": {"x": "horizontal", "y": "vertical", "origin": "launch"},
+        "geometry": {
+            "points": {
+                "launch": {"x": 0.0, "y": 0.0, "label": "O"},
+                "landing": {"x": landing_x, "y": 0.0, "label": "same range"},
+                "apex_a": {"x": ux1 * t1 / 2, "y": h1, "label": f"H({angle1:g}deg)"},
+                "apex_b": {"x": ux2 * t2 / 2, "y": h2, "label": f"H({angle2:g}deg)"},
+            },
+            "surfaces": [{"id": "ground", "type": "line", "from": "launch", "to": "landing"}],
+            "obstacles": [],
+            "axes": [
+                {"id": "x_axis", "direction": "horizontal"},
+                {"id": "y_axis", "direction": "vertical"},
+            ],
+        },
+        "actors": [
+            {"id": "projectile_a", "type": "particle", "label": f"{angle1:g}deg projectile"},
+            {"id": "projectile_b", "type": "particle", "label": f"{angle2:g}deg projectile"},
+        ],
+        "trajectories": [
+            {"id": "trajectory:a", "actor": "projectile_a", "equation": "R = u^2 sin(2theta)/g", "sampled_points": path1},
+            {"id": "trajectory:b", "actor": "projectile_b", "equation": "R = u^2 sin(2theta)/g", "sampled_points": path2},
+        ],
+        "motions": [
+            {
+                "actor": "projectile_a",
+                "kind": "constant_gravity_projectile",
+                "initial": {"x": 0.0, "y": 0.0, "vx": ux1, "vy": uy1},
+                "acceleration": {"x": 0.0, "y": -g},
+                "duration": t1,
+            },
+            {
+                "actor": "projectile_b",
+                "kind": "constant_gravity_projectile",
+                "initial": {"x": 0.0, "y": 0.0, "vx": ux2, "vy": uy2},
+                "acceleration": {"x": 0.0, "y": -g},
+                "duration": t2,
+            },
+        ],
+        "motion": {
+            "actor": "projectile_a",
+            "kind": "constant_gravity_projectile",
+            "initial": {"x": 0.0, "y": 0.0, "vx": ux1, "vy": uy1},
+            "acceleration": {"x": 0.0, "y": -g},
+            "duration": max(t1, t2),
+        },
+        "quantities": {
+            "u": {"value": u, "unit": "m/s"},
+            "angle1": {"value": angle1, "unit": "deg"},
+            "angle2": {"value": angle2, "unit": "deg"},
+            "T1": {"value": t1, "unit": "s"},
+            "T2": {"value": t2, "unit": "s"},
+            "H1": {"value": h1, "unit": "m"},
+            "H2": {"value": h2, "unit": "m"},
+            "R1": {"value": r1, "unit": "m"},
+            "R2": {"value": r2, "unit": "m"},
+            "g": {"value": g, "unit": "m/s^2"},
+        },
+        "events": [
+            {"id": "event:launch", "time": 0.0, "point": "launch", "label": "same speed launch"},
+            {"id": "event:landing_a", "time": t1, "point": "landing", "label": f"{angle1:g}deg lands"},
+            {"id": "event:landing_b", "time": t2, "point": "landing", "label": f"{angle2:g}deg lands"},
+        ],
+        "steps": _scene_steps(result),
+        "warnings": ["Comparison view overlays the two same-speed trajectories from a common launch point."],
+    }
+
+
 def _scene_steps(result: EvaluationResult) -> list[dict[str, Any]]:
     plan_steps = (result.equation_plan or {}).get("steps") or []
     plan = result.equation_plan or {}
@@ -1687,6 +1946,7 @@ def _storyboard_for_scene(scene: dict[str, Any], *, result: EvaluationResult) ->
             str(step.get("equation") or ""),
             list(step.get("focus_ids") or []),
         ))
+        visual_action = _semantic_visual_action_override(result, step_id, step, visual_action)
         camera = _camera_for_visual_plan(visual_plan, step_id, step)
         if camera not in camera_ids:
             camera = "full_scene"
@@ -1761,6 +2021,19 @@ def _storyboard_for_scene(scene: dict[str, Any], *, result: EvaluationResult) ->
             },
         })
     return [_normalize_storyboard_step_for_scene(step, scene) for step in storyboard]
+
+
+def _semantic_visual_action_override(
+    result: EvaluationResult,
+    step_id: str,
+    step: dict[str, Any],
+    visual_action: str,
+) -> str:
+    if result.engine_case == "monkey_hunter_condition":
+        focus = " ".join(str(item).lower() for item in step.get("focus_ids") or [])
+        if step_id.endswith("4") or "point:hit" in focus or "event:hit" in focus:
+            return "highlight_collision"
+    return visual_action
 
 
 def _normalize_storyboard_step_for_scene(step: dict[str, Any], scene: dict[str, Any]) -> dict[str, Any]:
@@ -2147,6 +2420,8 @@ def _scene_visual_action(step_id: str, title: str, equation: str, focus_ids: lis
         return "compare_incline_motion"
     if "n_p" in lowered or "normal separation" in lowered or ("incline:normal_axis" in lowered and "point:collision" in lowered):
         return "show_normal_return"
+    if "actor:monkey" in lowered and ("point:hit" in lowered or "event:hit" in lowered or "arrival" in lowered):
+        return "highlight_collision"
     if "event:collision" in lowered or "point:collision" in lowered:
         return "highlight_collision"
     if "same height" in lowered or "delta y" in lowered or "delta_y" in lowered:
@@ -2318,8 +2593,11 @@ def _unknown_for_case(engine_case: str, question_text: str) -> str:
         "level_ground_time_to_peak": "time_to_peak",
         "level_ground_position_at_time": "position_at_time",
         "level_ground_launch_angle_from_range": "launch_angle",
+        "two_projectile_same_speed_comparison": "time_height_range_comparison",
+        "monkey_hunter_condition": "falling_target_condition",
         "height_launch_time_of_flight": "time_of_flight",
         "height_launch_range": "range",
+        "height_launch_multi_quantity": "height_launch_multi_quantity",
         "height_launch_horizontal_scenario": "scenario_summary",
         "minimum_speed_to_hit_target": "minimum_speed",
         "perpendicular_launch_range_on_incline": "range_on_incline",

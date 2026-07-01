@@ -337,6 +337,13 @@ PLAN_BLUEPRINTS: dict[str, dict[str, object]] = {
         ],
         "takeaway": "For two projectiles launched together under gravity, use relative motion; gravity cancels between them.",
     },
+    "two_projectile_same_speed_comparison": {
+        "goal": "Compare time of flight, maximum height, and range for two equal-speed launches.",
+        "unknown": "time-height-range comparison",
+        "invariant": "Both projectiles have the same speed and land on the same level; only launch angle changes the component formulas.",
+        "equations": ["T = 2u sin(theta)/g", "H = u^2 sin^2(theta)/(2g)", "R = u^2 sin(2theta)/g"],
+        "takeaway": "Complementary launch angles have the same range, but the steeper angle stays longer and reaches higher.",
+    },
     "target_angle_from_short_overshoot": {
         "goal": "Infer the launch angle that exactly hits the target from two miss distances.",
         "unknown": "launch angle",
@@ -432,6 +439,18 @@ PLAN_BLUEPRINTS: dict[str, dict[str, object]] = {
         "equations": ["v_y^2 = u_y^2 - 2gH", "0 = u^2 sin^2(theta) - 2gH", "H = u^2 sin^2(theta)/(2g)"],
         "takeaway": "Maximum height comes from vertical motion only; horizontal velocity is irrelevant.",
     },
+    "monkey_hunter_condition": {
+        "goal": "Explain the falling-target hit condition.",
+        "unknown": "falling target hit condition",
+        "invariant": "The dart and monkey have the same downward gravitational displacement after release.",
+        "equations": [
+            "aim line: hunter points directly at the monkey",
+            "projectile drop = (1/2)gt^2",
+            "monkey drop = (1/2)gt^2",
+            "hit if line-of-sight arrival time is before monkey ground time",
+        ],
+        "takeaway": "The shot hits the falling monkey if the projectile reaches the original line of sight before the monkey reaches the ground.",
+    },
     "projectile_split_at_apex_fragment_time": {
         "goal": "Find the landing time of the second equal fragment after the projectile splits at the apex.",
         "unknown": "time after splitting",
@@ -471,6 +490,19 @@ PLAN_BLUEPRINTS: dict[str, dict[str, object]] = {
         "invariant": "Vertical motion fixes flight time; horizontal motion then gives range.",
         "equations": ["0 = h + u sin(theta)t - (1/2)gt^2", "R = u cos(theta)T"],
         "takeaway": "For launch from height, solve time first; level-ground range formula is wrong.",
+    },
+    "height_launch_multi_quantity": {
+        "goal": "Find all requested projectile quantities for a launch from nonzero height.",
+        "unknown": "requested nonzero-height projectile quantities",
+        "invariant": "Resolve velocity once; impact time comes from the nonzero-height vertical quadratic, then horizontal motion and impact velocity follow.",
+        "equations": [
+            "u_x = u cos(theta), u_y = u sin(theta)",
+            "0 = h + u_yT - (1/2)gT^2",
+            "T = (u_y + sqrt(u_y^2 + 2gh))/g",
+            "R = u_xT",
+            "H_max = h + max(u_y,0)^2/(2g)",
+        ],
+        "takeaway": "Do not reuse same-level formulas when launch height is nonzero; the positive root of the height equation controls the rest.",
     },
     "air_drag_conceptual_timing": {
         "goal": "Choose the qualitative effect of air drag.",
@@ -675,6 +707,15 @@ def _blueprint_step_title(engine_case: str, index: int, step_count: int, equatio
             return "Find down-slope speed gained"
         if lowered.startswith("v = sqrt") or "v_0^2" in lowered:
             return "Combine perpendicular velocity components"
+    if engine_case == "monkey_hunter_condition":
+        if "aim line" in lowered:
+            return "Read the direct aim line"
+        if "projectile drop" in lowered:
+            return "Track the projectile drop"
+        if "monkey drop" in lowered:
+            return "Track the monkey drop"
+        if "arrival time" in lowered:
+            return "Check arrival before the monkey lands"
     if _is_indexed_face_time_equation(lowered):
         return "Set up the nth step face"
     if _is_indexed_drop_equation(lowered):
@@ -743,6 +784,15 @@ def _blueprint_step_explanation(engine_case: str, index: int, step_count: int, e
             return "Gravity accelerates the particle only down the line of greatest slope, so the gained component is g sin(alpha)t."
         if lowered.startswith("v = sqrt") or "v_0^2" in lowered:
             return "The initial sideways speed and gained down-slope speed are perpendicular, so the final speed is their Pythagorean resultant."
+    if engine_case == "monkey_hunter_condition":
+        if "aim line" in lowered:
+            return "The gun is initially aimed along the straight line from the hunter to the monkey's starting position."
+        if "projectile drop" in lowered:
+            return "After firing, the projectile falls below the original aim line by exactly (1/2)gt^2."
+        if "monkey drop" in lowered:
+            return "The monkey starts from rest vertically, so in the same time it also drops by (1/2)gt^2."
+        if "arrival time" in lowered:
+            return "Because the two drops match, the only remaining condition is whether the projectile arrives before the monkey reaches the ground."
     if _is_indexed_face_time_equation(lowered):
         return "Let n be the step number. The nth vertical face is n step-widths away, so horizontal motion gives the time to reach that face."
     if _is_indexed_drop_equation(lowered):
@@ -797,6 +847,16 @@ def _blueprint_step_explanation(engine_case: str, index: int, step_count: int, e
 def _blueprint_focus_ids(engine_case: str, index: int, step_count: int, equation: str) -> list[str]:
     lowered = equation.lower()
     case = engine_case.lower()
+    if case == "monkey_hunter_condition":
+        if index == step_count - 1:
+            return ["actor:hunter", "actor:monkey", "point:hit", "event:hit", "answer"]
+        if "aim line" in lowered:
+            return ["actor:hunter", "actor:monkey", "line:aim", "point:monkey_start"]
+        if "projectile drop" in lowered:
+            return ["actor:projectile", "trajectory:path", "line:aim", "quantity:drop_projectile"]
+        if "monkey drop" in lowered:
+            return ["actor:monkey", "trajectory:monkey_drop", "quantity:drop_monkey"]
+        return ["actor:hunter", "actor:monkey", "trajectory:path", "trajectory:monkey_drop"]
     if "staircase" in case:
         if _is_indexed_hit_inequality(lowered) or index == step_count - 1:
             return ["staircase", "vertical_faces", "nth_step", "point:impact", "answer"]

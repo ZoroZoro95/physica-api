@@ -175,6 +175,23 @@ def main() -> None:
             "point": "target",
         },
         {
+            "name": "monkey hunter falling target scene",
+            "question": (
+                "A monkey hangs from a branch 45 m above the ground. A hunter aims directly at the monkey "
+                "and fires a projectile with speed 30 m/s. At the instant of firing, the monkey drops. "
+                "Explain whether the projectile hits the monkey. Take g = 10 m/s^2."
+            ),
+            "world": "monkey_hunter",
+            "unknown": "falling_target_condition",
+            "quantity": ("H", 45.0),
+            "point": "hit",
+            "surface_type": "aim_line",
+            "trajectory_count": 2,
+            "actors": {"hunter", "monkey", "projectile"},
+            "storyboard_focus": "actor:monkey",
+            "expected_event": "event:hit",
+        },
+        {
             "name": "two projectile collision scene",
             "question": (
                 "Projectile A is launched from x=0 with velocity components (20, 30) m/s. "
@@ -186,6 +203,20 @@ def main() -> None:
             "quantity": ("T", 10 / 3),
             "point": "collision",
             "trajectory_count": 2,
+        },
+        {
+            "name": "two projectile same speed comparison scene",
+            "question": (
+                "Two projectiles are launched with the same speed of 40 m/s, one at 30 degrees "
+                "and the other at 60 degrees. Compare their time of flight, maximum height, and range."
+            ),
+            "world": "multi_projectile",
+            "unknown": "time_height_range_comparison",
+            "quantity": ("H2", 60.0),
+            "point": "apex_b",
+            "trajectory_count": 2,
+            "actors": {"projectile_a", "projectile_b"},
+            "expected_event": "event:landing_b",
         },
         {
             "name": "two projectile interception ratio comparison scene",
@@ -298,6 +329,12 @@ def main() -> None:
         trajectory_count = case.get("trajectory_count")
         if trajectory_count and len(spec["trajectories"]) != trajectory_count:
             failures.append(f"{case['name']}: trajectory_count={len(spec['trajectories'])}")
+        actors = case.get("actors")
+        if actors:
+            actual_actors = {actor.get("id") for actor in spec.get("actors", [])}
+            missing_actors = set(actors) - actual_actors
+            if missing_actors:
+                failures.append(f"{case['name']}: missing actors {sorted(missing_actors)}")
         if case.get("phase_windows"):
             windows = {
                 trajectory.get("actor"): trajectory.get("time_window")

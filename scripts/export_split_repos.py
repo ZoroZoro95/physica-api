@@ -13,6 +13,7 @@ BACKEND_DIRS = [
     "core",
     "scripts",
     "docs",
+    "testdata",
 ]
 BACKEND_FILES = [
     "requirements.txt",

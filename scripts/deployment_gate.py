@@ -21,15 +21,16 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 FRONTEND = ROOT / "frontend"
 VISUAL_ROOT = ROOT / "questions" / "visual_benchmarks" / "smoke_visual_benchmark"
+SCREENSHOT_DIR = Path(os.getenv("PHYSICA_SCREENSHOT_DIR", str(Path.home() / "Desktop"))).expanduser()
 
 IMAGE_BATCH = [
-    "/Users/siddharth/Desktop/Screenshot 2026-05-25 at 9.44.11 PM.png",
-    "/Users/siddharth/Desktop/Screenshot 2026-05-25 at 9.44.18 PM.png",
-    "/Users/siddharth/Desktop/Screenshot 2026-05-25 at 9.44.24 PM.png",
-    "/Users/siddharth/Desktop/Screenshot 2026-05-25 at 9.44.30 PM.png",
-    "/Users/siddharth/Desktop/Screenshot 2026-05-25 at 9.44.36 PM.png",
-    "/Users/siddharth/Desktop/Screenshot 2026-05-25 at 9.44.42 PM.png",
-    "/Users/siddharth/Desktop/Screenshot 2026-05-25 at 12.41.58 PM.png",
+    str(SCREENSHOT_DIR / "Screenshot 2026-05-25 at 9.44.11 PM.png"),
+    str(SCREENSHOT_DIR / "Screenshot 2026-05-25 at 9.44.18 PM.png"),
+    str(SCREENSHOT_DIR / "Screenshot 2026-05-25 at 9.44.24 PM.png"),
+    str(SCREENSHOT_DIR / "Screenshot 2026-05-25 at 9.44.30 PM.png"),
+    str(SCREENSHOT_DIR / "Screenshot 2026-05-25 at 9.44.36 PM.png"),
+    str(SCREENSHOT_DIR / "Screenshot 2026-05-25 at 9.44.42 PM.png"),
+    str(SCREENSHOT_DIR / "Screenshot 2026-05-25 at 12.41.58 PM.png"),
 ]
 
 
@@ -62,6 +63,7 @@ def main() -> int:
         Check("animation scene spec regressions", [sys.executable, "scripts/regress_animation_scene_spec.py"]),
         Check("walkthrough sync audit regressions", [sys.executable, "scripts/regress_walkthrough_sync_audit.py"]),
         Check("projectile DPP manifest validation", [sys.executable, "scripts/validate_projectile_manifest.py"]),
+        Check("projectile practice-60 acceptance", [sys.executable, "scripts/run_projectile_practice_acceptance.py", "--fail-on-issues"]),
         Check("landing media size", [sys.executable, "scripts/check_landing_media.py"]),
     ]
     if not args.skip_frontend:

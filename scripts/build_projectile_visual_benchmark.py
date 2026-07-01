@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import subprocess
 import sys
 from datetime import datetime, timezone
@@ -20,6 +21,7 @@ from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_OUT_ROOT = ROOT / "questions" / "visual_benchmarks"
+SCREENSHOT_DIR = Path(os.getenv("PHYSICA_SCREENSHOT_DIR", str(Path.home() / "Desktop"))).expanduser()
 
 
 TEXT_CASES: list[dict[str, Any]] = [
@@ -213,7 +215,7 @@ def build_manifest() -> list[dict[str, Any]]:
             "question_number": image_number,
             "source_type": "image_screenshot_manifest",
             "source_id": case_dir_name,
-            "source_image": str(Path("/Users/siddharth/Desktop") / desktop_name),
+            "source_image": str(SCREENSHOT_DIR / desktop_name),
         })
         entries.append(raw)
         image_number += 1

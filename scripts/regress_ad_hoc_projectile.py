@@ -171,6 +171,32 @@ CASES = [
         requested_quantity="maximum_range",
     ),
     Case(
+        name="maximum range text overrides bad height metadata",
+        question="Projectile at 45deg with 25 m/s. Find the maximum range.",
+        options=[],
+        expected_engine_case="level_ground_range",
+        expected_value=62.5,
+        requested_quantity="maximum_height",
+    ),
+    Case(
+        name="plain maximum height does not use scaling solver",
+        question="Projectile launched at 30deg with 20 m/s. Find the maximum height.",
+        options=[],
+        expected_engine_case="level_ground_max_height",
+        expected_value=5.0,
+        requested_quantity="maximum_height",
+    ),
+    Case(
+        name="monkey hunter conceptual wording without full numeric data",
+        question=(
+            "A monkey hangs from a branch. A hunter aims directly at the monkey and fires. "
+            "At the instant of firing, the monkey drops. Explain whether the projectile hits the monkey."
+        ),
+        options=[],
+        expected_engine_case="monkey_hunter_condition",
+        expected_text_contains=["projectile reaches the monkey before the monkey reaches the ground"],
+    ),
+    Case(
         name="level-ground range and time requested together",
         question="A ball is thrown at u=16 m/s at 53 deg. Find range and time of flight.",
         options=[],
@@ -250,6 +276,16 @@ CASES = [
         expected_engine_case="range_angle_scaling",
         expected_value=100.0,
         requested_quantity="new_range",
+    ),
+    Case(
+        name="two projectile same speed compare time height range",
+        question=(
+            "Two projectiles are launched with the same speed of 40 m/s, one at 30 degrees "
+            "and the other at 60 degrees. Compare their time of flight, maximum height, and range."
+        ),
+        options=[],
+        expected_engine_case="two_projectile_same_speed_comparison",
+        expected_text_contains=["T=4s", "T=6.9282", "H=20m", "H=60m", "range: same"],
     ),
     Case(
         name="angle when range equals maximum height",

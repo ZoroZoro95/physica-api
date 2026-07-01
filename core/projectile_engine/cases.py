@@ -288,15 +288,123 @@ def solve_projectile_with_horizontal_acceleration(entry: ManifestEntry) -> Evalu
     )
 
 
-def solve_level_ground_range(entry: ManifestEntry) -> EvaluationResult:
-    v0 = _number_from_any_known(entry, ["v0", "velocity", "speed"])
-    angle = math.radians(_number_from_any_known(entry, ["angle", "launch_angle"], default=45.0))
+def _level_ground_state(entry: ManifestEntry) -> dict[str, float]:
+    text = entry.question_text.lower()
     g = _number_from_known(entry, "g", default=10.0)
-    range_value = v0 * v0 * math.sin(2 * angle) / g
+    v0 = _optional_number_from_any_known(entry, ["v0", "velocity", "speed"])
+    angle_deg = _optional_number_from_any_known(entry, ["angle", "launch_angle"])
+    angle = math.radians(angle_deg) if angle_deg is not None else None
+    if angle is None and v0 is not None and any(marker in entry.question_text.lower() for marker in ("maximum range", "maximum horizontal range")):
+        angle = math.radians(45.0)
+    ux = _optional_number_from_any_known(entry, ["ux", "u_x", "vx", "v_x", "horizontal_velocity", "horizontal_speed"])
+    uy = _optional_number_from_any_known(entry, ["uy", "u_y", "vy", "v_y", "vertical_velocity", "vertical_speed"])
+    time = _optional_number_from_any_known(entry, ["time", "t", "flight_time", "time_of_flight"])
+    range_known = _optional_number_from_any_known(entry, ["range", "R", "horizontal_range", "distance"])
+    max_height_known = _optional_number_from_any_known(entry, ["max_height", "maximum_height", "height", "H"])
+
+    component_speed_context = any(marker in text for marker in ("horizontal component", "horizontal velocity", "horizontal speed", "velocity at the highest point"))
+    if ux is not None and angle is not None and component_speed_context:
+        cos_angle = math.cos(angle)
+        if math.isclose(cos_angle, 0.0, abs_tol=1e-12):
+            raise ValueError(f"{entry.label}: horizontal component cannot determine speed for vertical launch")
+        v0 = ux / cos_angle
+        uy = v0 * math.sin(angle)
+    if time is not None and range_known is not None:
+        ux = range_known / time
+        uy = 0.5 * g * time
+        v0 = math.hypot(ux, uy)
+        angle = math.atan2(uy, ux)
+    if ux is not None and angle is not None and v0 is None:
+        cos_angle = math.cos(angle)
+        if math.isclose(cos_angle, 0.0, abs_tol=1e-12):
+            raise ValueError(f"{entry.label}: horizontal component cannot determine speed for vertical launch")
+        v0 = ux / cos_angle
+        uy = v0 * math.sin(angle)
+    if ux is not None and time is not None and uy is None:
+        uy = 0.5 * g * time
+        v0 = math.hypot(ux, uy)
+        angle = math.atan2(uy, ux)
+    if uy is not None and ux is not None and v0 is None:
+        v0 = math.hypot(ux, uy)
+        angle = math.atan2(uy, ux)
+    if time is not None and angle is not None and v0 is None:
+        sin_angle = math.sin(angle)
+        if math.isclose(sin_angle, 0.0, abs_tol=1e-12):
+            raise ValueError(f"{entry.label}: time of flight cannot determine horizontal launch speed on level ground")
+        v0 = g * time / (2 * sin_angle)
+    if time is not None and v0 is not None and angle is None:
+        sin_angle = g * time / (2 * v0)
+        if abs(sin_angle) <= 1 + 1e-9:
+            angle = math.asin(max(-1.0, min(1.0, sin_angle)))
+    if range_known is not None and angle is not None and v0 is None:
+        sin_double = math.sin(2 * angle)
+        if math.isclose(sin_double, 0.0, abs_tol=1e-12):
+            raise ValueError(f"{entry.label}: range cannot determine speed for this angle")
+        v0 = math.sqrt(abs(range_known * g / sin_double))
+    if range_known is not None and v0 is not None and angle is None:
+        sin_double = range_known * g / (v0 * v0)
+        if abs(sin_double) <= 1 + 1e-9:
+            angle = 0.5 * math.asin(max(-1.0, min(1.0, sin_double)))
+    if max_height_known is not None and angle is not None and v0 is None:
+        sin_angle = math.sin(angle)
+        if math.isclose(sin_angle, 0.0, abs_tol=1e-12):
+            raise ValueError(f"{entry.label}: maximum height cannot determine speed for horizontal launch")
+        v0 = math.sqrt(2 * g * max_height_known) / abs(sin_angle)
+    if max_height_known is not None and v0 is not None and angle is None:
+        sin_angle = math.sqrt(max(0.0, 2 * g * max_height_known)) / v0
+        if abs(sin_angle) <= 1 + 1e-9:
+            angle = math.asin(max(-1.0, min(1.0, sin_angle)))
+    if v0 is None or angle is None:
+        missing = []
+        if v0 is None:
+            missing.append("launch speed")
+        if angle is None:
+            missing.append("launch angle")
+        raise ValueError(f"{entry.label}: missing {', '.join(missing)}")
+
+    ux = v0 * math.cos(angle) if ux is None else ux
+    uy = v0 * math.sin(angle) if uy is None else uy
+    time = 2 * uy / g if time is None else time
+    range_value = ux * time if range_known is None else range_known
+    max_height = uy * uy / (2 * g) if max_height_known is None else max_height_known
+    return {
+        "g": g,
+        "v0": v0,
+        "angle": angle,
+        "ux": ux,
+        "uy": uy,
+        "time": time,
+        "range": range_value,
+        "max_height": max_height,
+        "time_to_peak": uy / g,
+    }
+
+
+def solve_level_ground_range(entry: ManifestEntry) -> EvaluationResult:
+    text = entry.question_text.lower()
+    if any(marker in text for marker in ("derive", "derivation", "condition")) and any(marker in text for marker in ("maximum horizontal range", "maximum range")):
+        return _symbolic_result(
+            entry,
+            computed_text="theta = 45 deg",
+            trace=[
+                "For level-ground projectile motion, R = u^2 sin(2theta)/g.",
+                "For fixed u and g, R is maximum when sin(2theta)=1.",
+                "So 2theta=90deg and theta=45deg.",
+            ],
+        )
+    state = _level_ground_state(entry)
+    v0 = state["v0"]
+    angle = state["angle"]
+    g = state["g"]
+    range_value = state["range"]
+    if "initial speed" in text or "speed needed" in text:
+        computed_text = f"u = {v0:g} m/s"
+    else:
+        computed_text = f"{range_value:g} m"
     return _result(
         entry,
         computed_value=range_value,
-        computed_text=f"{range_value:g} m",
+        computed_text=computed_text,
         trace=[
             "For level-ground projectile motion, horizontal range is R = u^2 sin(2theta)/g.",
             f"R = {v0:g}^2 * sin({2 * math.degrees(angle):g}deg) / {g:g} = {range_value:g} m.",
@@ -325,20 +433,58 @@ def solve_level_ground_range_and_time(entry: ManifestEntry) -> EvaluationResult:
 
 
 def solve_level_ground_multi_quantity(entry: ManifestEntry) -> EvaluationResult:
-    v0 = _number_from_any_known(entry, ["v0", "velocity", "speed"])
-    angle = math.radians(_number_from_any_known(entry, ["angle", "launch_angle"]))
-    g = _number_from_known(entry, "g", default=10.0)
-    ux = v0 * math.cos(angle)
-    uy = v0 * math.sin(angle)
-    time = 2 * uy / g
-    range_value = v0 * v0 * math.sin(2 * angle) / g
-    max_height = uy * uy / (2 * g)
-    time_to_peak = uy / g
+    if any(marker in entry.question_text.lower() for marker in ("derive", "derivation", "condition")) and any(
+        marker in entry.question_text.lower() for marker in ("maximum horizontal range", "maximum range")
+    ):
+        return _symbolic_result(
+            entry,
+            computed_text="theta = 45 deg",
+            trace=[
+                "For level-ground projectile motion, R = u^2 sin(2theta)/g.",
+                "For fixed launch speed, maximize sin(2theta).",
+                "Maximum occurs when sin(2theta)=1, so theta=45deg.",
+            ],
+        )
+    partial_time = _optional_number_from_any_known(entry, ["time", "t", "flight_time", "time_of_flight"])
+    partial_height = _optional_number_from_any_known(entry, ["max_height", "maximum_height", "height", "H"])
+    partial_v0 = _optional_number_from_any_known(entry, ["v0", "velocity", "speed"])
+    partial_range = _optional_number_from_any_known(entry, ["range", "R", "horizontal_range", "distance"])
+    partial_ux = _optional_number_from_any_known(entry, ["ux", "u_x", "vx", "v_x", "horizontal_velocity", "horizontal_speed"])
+    partial_angle = _optional_number_from_any_known(entry, ["angle", "launch_angle"])
+    if partial_time is not None and partial_height is not None and partial_v0 is None and partial_range is None and partial_ux is None and partial_angle is None:
+        g = _number_from_known(entry, "g", default=10.0)
+        uy_from_time = 0.5 * g * partial_time
+        uy_from_height = math.sqrt(max(0.0, 2 * g * partial_height))
+        consistent = math.isclose(uy_from_time, uy_from_height, rel_tol=1e-6, abs_tol=1e-6)
+        return _symbolic_result(
+            entry,
+            computed_text=f"u_y = {uy_from_time:g} m/s; consistency = {'yes' if consistent else 'no'}",
+            trace=[
+                "For level-ground motion, total flight time gives u_y = gT/2.",
+                f"u_y from time = {g:g}*{partial_time:g}/2 = {uy_from_time:g} m/s.",
+                "Maximum height gives u_y = sqrt(2gH).",
+                f"u_y from height = sqrt(2*{g:g}*{partial_height:g}) = {uy_from_height:g} m/s.",
+            ],
+        )
+    state = _level_ground_state(entry)
+    v0 = state["v0"]
+    angle = state["angle"]
+    g = state["g"]
+    ux = state["ux"]
+    uy = state["uy"]
+    time = state["time"]
+    range_value = state["range"]
+    max_height = state["max_height"]
+    time_to_peak = state["time_to_peak"]
     outputs = _requested_level_ground_outputs(entry.question_text)
     if not outputs:
         outputs = ["time_of_flight", "range"]
 
     output_text: list[str] = []
+    if "initial_speed" in outputs:
+        output_text.append(f"u = {v0:g} m/s")
+    if "launch_angle" in outputs:
+        output_text.append(f"theta = {math.degrees(angle):g} deg")
     if "components" in outputs:
         output_text.append(f"u_x = {ux:g} m/s")
         output_text.append(f"u_y = {uy:g} m/s")
@@ -535,22 +681,76 @@ def solve_level_ground_time_to_peak(entry: ManifestEntry) -> EvaluationResult:
 
 
 def solve_level_ground_position_at_time(entry: ManifestEntry) -> EvaluationResult:
-    v0 = _number_from_any_known(entry, ["v0", "velocity", "speed"])
-    angle = math.radians(_number_from_any_known(entry, ["angle", "launch_angle"]))
-    time = _number_from_any_known(entry, ["time", "t"])
+    v0 = _optional_number_from_any_known(entry, ["v0", "velocity", "speed"])
+    angle_value = _optional_number_from_any_known(entry, ["angle", "launch_angle"])
+    angle = math.radians(angle_value) if angle_value is not None else None
+    time = _optional_number_from_any_known(entry, ["time", "t"])
     g = _number_from_known(entry, "g", default=10.0)
     x0 = _number_from_any_known(entry, ["x0", "initial_x"], default=0.0)
     y0 = _number_from_any_known(entry, ["y0", "initial_y"], default=0.0)
+    target_x = _optional_number_from_any_known(entry, ["x", "target_x", "horizontal_distance", "distance"])
+    target_y = _optional_number_from_any_known(entry, ["y", "target_y"])
+    ux_known = _optional_number_from_any_known(entry, ["ux", "u_x", "vx", "v_x", "horizontal_velocity", "horizontal_speed"])
+    component_context = any(marker in entry.question_text.lower() for marker in ("horizontal velocity", "horizontal component"))
+    if ux_known is not None and time is not None and target_y is not None and (v0 is None or component_context):
+        uy0 = (target_y - y0 + 0.5 * g * time * time) / time
+        v0 = math.hypot(ux_known, uy0)
+        angle = math.atan2(uy0, ux_known)
+    if v0 is not None and angle is not None and time is None and target_x is not None:
+        ux_for_time = v0 * math.cos(angle)
+        if math.isclose(ux_for_time, 0.0, abs_tol=1e-12):
+            raise ValueError(f"{entry.label}: horizontal position cannot determine time for vertical launch")
+        time = (target_x - x0) / ux_for_time
+    if v0 is None and angle is None and time is not None and target_x is not None and target_y is not None:
+        ux0 = (target_x - x0) / time
+        uy0 = (target_y - y0 + 0.5 * g * time * time) / time
+        v0 = math.hypot(ux0, uy0)
+        angle = math.atan2(uy0, ux0)
+    if v0 is None or angle is None or time is None:
+        missing = []
+        if v0 is None:
+            missing.append("launch speed")
+        if angle is None:
+            missing.append("launch angle")
+        if time is None:
+            missing.append("time or horizontal position")
+        raise ValueError(f"{entry.label}: missing {', '.join(missing)}")
     x = x0 + v0 * math.cos(angle) * time
     y = y0 + v0 * math.sin(angle) * time - 0.5 * g * time * time
+    vx = v0 * math.cos(angle)
+    vy = v0 * math.sin(angle) - g * time
+    speed = math.hypot(vx, vy)
+    displacement = math.hypot(x - x0, y - y0)
+    text = entry.question_text.lower()
+    parts: list[str] = []
+    if any(marker in text for marker in ("initial horizontal velocity", "initial vertical velocity", "initial speed", "angle of projection")):
+        parts.append(f"u_x={v0 * math.cos(angle):g} m/s")
+        parts.append(f"u_y={v0 * math.sin(angle):g} m/s")
+        parts.append(f"u={v0:g} m/s")
+        parts.append(f"theta={math.degrees(angle):g} deg")
+    if "height" in text or target_y is not None:
+        parts.append(f"y={y:g} m")
+    if "position and velocity" in text:
+        parts.append(f"x={x:g} m")
+        parts.append(f"v_x={vx:g} m/s")
+        parts.append(f"v_y={vy:g} m/s")
+        parts.append(f"|v|={speed:g} m/s")
+    if "displacement" in text:
+        parts.append(f"displacement={displacement:g} m")
+    if "vertical velocity" in text or "velocity when" in text:
+        parts.append(f"v_y={vy:g} m/s")
+    if not parts:
+        parts.append(f"x={x:g} m")
+        parts.append(f"y={y:g} m")
     return _result(
         entry,
         computed_value=None,
-        computed_text=f"x={x:g} m, y={y:g} m",
+        computed_text=", ".join(parts),
         trace=[
             "Resolve the launch velocity into horizontal and vertical components.",
             f"x = x0 + u cos(theta)t = {x0:g} + {v0:g} cos({math.degrees(angle):g}deg)*{time:g} = {x:g} m.",
             f"y = y0 + u sin(theta)t - 0.5gt^2 = {y0:g} + {v0:g} sin({math.degrees(angle):g}deg)*{time:g} - 0.5*{g:g}*{time:g}^2 = {y:g} m.",
+            f"v_y = u sin(theta) - gt = {vy:g} m/s and speed = {speed:g} m/s.",
         ],
     )
 
@@ -573,6 +773,76 @@ def solve_level_ground_velocity_at_time(entry: ManifestEntry) -> EvaluationResul
             f"v_x = u cos(theta) = {v0:g} cos({math.degrees(angle):g}deg) = {vx:g} m/s.",
             f"v_y = u sin(theta) - gt = {v0:g} sin({math.degrees(angle):g}deg) - {g:g}*{time:g} = {vy:g} m/s.",
             f"Speed = sqrt(v_x^2+v_y^2) = {speed:g} m/s.",
+        ],
+    )
+
+
+def solve_vertical_component_height_times(entry: ManifestEntry) -> EvaluationResult:
+    uy = _number_from_any_known(entry, ["uy", "u_y", "vy", "v_y", "vertical_velocity", "vertical_speed"])
+    height = _number_from_any_known(entry, ["height", "y", "target_y"])
+    g = _number_from_known(entry, "g", default=10.0)
+    discriminant = uy * uy - 2 * g * height
+    if discriminant < -1e-9:
+        raise ValueError(f"{entry.label}: projectile never reaches height {height:g} m")
+    root = math.sqrt(max(0.0, discriminant))
+    t1 = (uy - root) / g
+    t2 = (uy + root) / g
+    return _symbolic_result(
+        entry,
+        computed_text=f"t = {t1:g} s and {t2:g} s",
+        trace=[
+            "Use vertical motion y = u_y t - 1/2 gt^2.",
+            f"{height:g} = {uy:g}t - 1/2*{g:g}t^2.",
+            f"The two roots are t={t1:g}s and t={t2:g}s.",
+        ],
+    )
+
+
+def solve_trajectory_equation_from_launch(entry: ManifestEntry) -> EvaluationResult:
+    v0 = _number_from_any_known(entry, ["v0", "velocity", "speed"])
+    angle = math.radians(_number_from_any_known(entry, ["angle", "launch_angle"]))
+    g = _number_from_known(entry, "g", default=10.0)
+    tan_angle = math.tan(angle)
+    cos_angle = math.cos(angle)
+    coefficient = g / (2 * v0 * v0 * cos_angle * cos_angle)
+    return _symbolic_result(
+        entry,
+        computed_text=f"y = {tan_angle:g}x - {coefficient:g}x^2",
+        trace=[
+            "Eliminate time from x = u cos(theta)t and y = u sin(theta)t - 1/2gt^2.",
+            "The trajectory equation is y = x tan(theta) - gx^2/(2u^2 cos^2(theta)).",
+            f"Substitution gives y = {tan_angle:g}x - {coefficient:g}x^2.",
+        ],
+    )
+
+
+def solve_monkey_hunter_condition(entry: ManifestEntry) -> EvaluationResult:
+    v0 = _optional_number_from_any_known(entry, ["v0", "velocity", "speed"])
+    height = _optional_number_from_any_known(entry, ["height", "y", "target_y"])
+    g = _number_from_known(entry, "g", default=10.0)
+    fall_time = math.sqrt(2 * height / g) if height is not None else None
+    max_line_of_sight = v0 * fall_time if v0 is not None and fall_time is not None else None
+    computed_text = (
+        f"conditional: hits before ground only if line-of-sight distance <= {max_line_of_sight:g} m"
+        if max_line_of_sight is not None
+        else "conditional: hits if the projectile reaches the monkey before the monkey reaches the ground"
+    )
+    numeric_trace = []
+    if fall_time is not None:
+        numeric_trace.append(f"Monkey fall time is sqrt(2h/g) = sqrt(2*{height:g}/{g:g}) = {fall_time:g} s.")
+    else:
+        numeric_trace.append("Without the monkey height, the fall time remains sqrt(2h/g).")
+    if max_line_of_sight is not None:
+        numeric_trace.append(f"With speed {v0:g} m/s, the maximum line-of-sight distance is {v0:g}*{fall_time:g} = {max_line_of_sight:g} m.")
+    else:
+        numeric_trace.append("Without both projectile speed and line-of-sight distance, a bare yes/no is under-specified.")
+    return _symbolic_result(
+        entry,
+        computed_text=computed_text,
+        trace=[
+            "A projectile aimed directly at a falling target has the same downward gravitational drop as the target.",
+            "So it intersects the monkey if it reaches the original line-of-sight point before the monkey hits the ground.",
+            *numeric_trace,
         ],
     )
 
@@ -650,8 +920,48 @@ def solve_range_angle_scaling(entry: ManifestEntry) -> EvaluationResult:
     )
 
 
+def solve_two_projectile_same_speed_comparison(entry: ManifestEntry) -> EvaluationResult:
+    speed = _number_from_any_known(entry, ["v0", "u", "speed", "velocity"])
+    angle1_deg = _number_from_any_known(entry, ["angle1", "theta1", "angle_a"])
+    angle2_deg = _number_from_any_known(entry, ["angle2", "theta2", "angle_b"])
+    g = _number_from_known(entry, "g", default=10.0)
+
+    def values(angle_deg: float) -> tuple[float, float, float]:
+        theta = math.radians(angle_deg)
+        time = 2 * speed * math.sin(theta) / g
+        height = speed * speed * math.sin(theta) ** 2 / (2 * g)
+        horizontal_range = speed * speed * math.sin(2 * theta) / g
+        return time, height, horizontal_range
+
+    t1, h1, r1 = values(angle1_deg)
+    t2, h2, r2 = values(angle2_deg)
+    range_relation = "same" if math.isclose(r1, r2, rel_tol=1e-9, abs_tol=1e-9) else ("larger for theta1" if r1 > r2 else "larger for theta2")
+    computed_text = (
+        f"theta1={angle1_deg:g}deg: T={t1:g}s, H={h1:g}m, R={r1:g}m; "
+        f"theta2={angle2_deg:g}deg: T={t2:g}s, H={h2:g}m, R={r2:g}m; "
+        f"range: {range_relation}"
+    )
+    return _result(
+        entry,
+        computed_value=None,
+        computed_text=computed_text,
+        trace=[
+            "For equal speed on level ground, compare each quantity by its angle dependence.",
+            f"T ∝ sin(theta): T1/T2 = sin({angle1_deg:g}deg)/sin({angle2_deg:g}deg), so {t1:g}s vs {t2:g}s.",
+            f"H ∝ sin^2(theta): H1/H2 = sin^2({angle1_deg:g}deg)/sin^2({angle2_deg:g}deg), so {h1:g}m vs {h2:g}m.",
+            f"R ∝ sin(2theta): sin({2*angle1_deg:g}deg) and sin({2*angle2_deg:g}deg), so {r1:g}m vs {r2:g}m.",
+        ],
+    )
+
+
 def solve_range_equals_max_height_angle(entry: ManifestEntry) -> EvaluationResult:
-    angle = math.degrees(math.atan(4))
+    text = entry.question_text.lower()
+    ratio = 1.0
+    if "four times" in text or "4 times" in text or "4h" in text:
+        ratio = 4.0
+    elif "twice" in text or "two times" in text or "2 times" in text:
+        ratio = 2.0
+    angle = math.degrees(math.atan(4 / ratio))
     return _result(
         entry,
         computed_value=angle,
@@ -659,8 +969,8 @@ def solve_range_equals_max_height_angle(entry: ManifestEntry) -> EvaluationResul
         trace=[
             "For level-ground projectile motion: R = u^2 sin(2theta)/g and H = u^2 sin^2(theta)/(2g).",
             "So R/H = 4 cot(theta).",
-            "R = H gives 4 cot(theta) = 1, hence tan(theta) = 4.",
-            f"theta = tan^-1(4) = {angle:g}deg.",
+            f"Here R/H = {ratio:g}, so 4 cot(theta) = {ratio:g}.",
+            f"theta = tan^-1({4 / ratio:g}) = {angle:g}deg.",
         ],
     )
 
@@ -730,24 +1040,109 @@ def solve_height_launch_range(entry: ManifestEntry) -> EvaluationResult:
     )
 
 
-def solve_height_launch_horizontal_scenario(entry: ManifestEntry) -> EvaluationResult:
+def solve_height_launch_multi_quantity(entry: ManifestEntry) -> EvaluationResult:
     v0 = _number_from_any_known(entry, ["v0", "velocity", "speed"])
+    angle = math.radians(_number_from_any_known(entry, ["angle", "launch_angle"]))
     height = _number_from_any_known(entry, ["height", "launch_height", "initial_height", "h"])
     g = _number_from_known(entry, "g", default=10.0)
-    time = math.sqrt(2 * height / g)
-    range_value = v0 * time
+    ux = v0 * math.cos(angle)
+    uy = v0 * math.sin(angle)
+    time = _height_launch_time(v0, angle, height, g)
+    range_value = ux * time
+    impact_vy = uy - g * time
+    impact_speed = math.hypot(ux, impact_vy)
+    impact_angle = math.degrees(math.atan2(abs(impact_vy), abs(ux))) if not math.isclose(ux, 0.0, abs_tol=1e-12) else 90.0
+    peak_gain = uy * uy / (2 * g) if uy > 0 else 0.0
+    max_height = height + peak_gain
+
+    outputs = _requested_height_launch_outputs(entry.question_text)
+    if not outputs:
+        outputs = ["time_of_flight", "range"]
+
+    output_text: list[str] = []
+    if "components" in outputs:
+        output_text.append(f"u_x = {ux:g} m/s")
+        output_text.append(f"u_y = {uy:g} m/s")
+    if "time_of_flight" in outputs:
+        output_text.append(f"T = {time:g} s")
+    if "range" in outputs:
+        output_text.append(f"R = {range_value:g} m")
+    if "maximum_height" in outputs:
+        output_text.append(f"H = {max_height:g} m")
+    if "impact_speed" in outputs:
+        output_text.append(f"|v|_impact = {impact_speed:g} m/s")
+    if "impact_angle" in outputs:
+        output_text.append(f"impact angle = {impact_angle:g} deg below horizontal")
+
+    trace = [
+        f"Resolve components: u_x = {ux:g} m/s, u_y = {uy:g} m/s.",
+        "Use the nonzero-height vertical equation: 0 = h + u_y t - 1/2 g t^2.",
+        f"The positive root gives T = {time:g} s.",
+    ]
+    if "range" in outputs:
+        trace.append(f"Horizontal motion gives R = u_x T = {ux:g} * {time:g} = {range_value:g} m.")
+    if "maximum_height" in outputs:
+        trace.append(f"Peak height above ground is h + u_y^2/(2g) = {max_height:g} m.")
+    if "impact_speed" in outputs or "impact_angle" in outputs:
+        trace.append(f"At impact, v_y = u_y - gT = {impact_vy:g} m/s and speed = {impact_speed:g} m/s.")
+
+    return _symbolic_result(entry, computed_text="; ".join(output_text), trace=trace)
+
+
+def solve_height_launch_horizontal_scenario(entry: ManifestEntry) -> EvaluationResult:
+    v0 = _optional_number_from_any_known(entry, ["v0", "velocity", "speed", "vx", "horizontal_velocity"])
+    height = _optional_number_from_any_known(entry, ["height", "launch_height", "initial_height", "h"])
+    time = _optional_number_from_any_known(entry, ["time", "t", "flight_time", "time_of_flight"])
+    range_value = _optional_number_from_any_known(entry, ["range", "horizontal_range", "distance"])
+    g = _number_from_known(entry, "g", default=10.0)
+    if time is None and height is not None:
+        time = math.sqrt(2 * height / g)
+    if height is None and time is not None:
+        height = 0.5 * g * time * time
+    if v0 is None and range_value is not None and time is not None:
+        v0 = range_value / time
+    if range_value is None and v0 is not None and time is not None:
+        range_value = v0 * time
+    if time is None and v0 is not None and range_value is not None:
+        time = range_value / v0
+        height = 0.5 * g * time * time
+    if v0 is None or height is None or time is None or range_value is None:
+        missing = [
+            name for name, value in {
+                "horizontal speed": v0,
+                "height": height,
+                "time": time,
+                "range": range_value,
+            }.items()
+            if value is None
+        ]
+        raise ValueError(f"{entry.label}: insufficient horizontal-launch data; missing {', '.join(missing)}")
     impact_vy = -g * time
     impact_speed = math.hypot(v0, impact_vy)
+    impact_angle = math.degrees(math.atan2(abs(impact_vy), abs(v0))) if not math.isclose(v0, 0.0, abs_tol=1e-12) else 90.0
+    outputs = _requested_height_launch_outputs(entry.question_text)
+    if not outputs:
+        outputs = ["time_of_flight", "range", "impact_speed"]
+    output_text: list[str] = []
+    if "time_of_flight" in outputs:
+        output_text.append(f"time={time:g} s")
+    if "range" in outputs:
+        output_text.append(f"range={range_value:g} m")
+    if "height" in outputs:
+        output_text.append(f"height={height:g} m")
+    if "components" in outputs or "horizontal_speed" in outputs:
+        output_text.append(f"v_x={v0:g} m/s")
+    if "impact_speed" in outputs:
+        output_text.append(f"|v|_impact={impact_speed:g} m/s")
+    if "impact_angle" in outputs:
+        output_text.append(f"impact angle={impact_angle:g} deg below horizontal")
     return _symbolic_result(
         entry,
-        computed_text=(
-            f"time={time:g} s, range={range_value:g} m, "
-            f"v_x={v0:g} m/s, v_y(impact)={impact_vy:g} m/s, |v|(impact)={impact_speed:g} m/s"
-        ),
+        computed_text=", ".join(output_text),
         trace=[
-            "No requested quantity is stated, so this is treated as a horizontal-launch scenario summary for visualization.",
-            f"Vertical motion gives 0 = {height:g} - 0.5*{g:g}*t^2, so t = sqrt(2h/g) = {time:g} s.",
-            f"Horizontal velocity stays constant: v_x = {v0:g} m/s, so range R = v_x t = {range_value:g} m.",
+            "Horizontal launch has u_y=0, so vertical motion and horizontal motion separate cleanly.",
+            f"Vertical motion gives h = 1/2 g t^2, so h={height:g} m and t={time:g} s.",
+            f"Horizontal motion gives R = v_x t, so v_x={v0:g} m/s and R={range_value:g} m.",
             f"At impact, v_y = -gt = {impact_vy:g} m/s and speed is sqrt(v_x^2 + v_y^2) = {impact_speed:g} m/s.",
         ],
     )
@@ -776,12 +1171,34 @@ def solve_wall_height_at_distance(entry: ManifestEntry) -> EvaluationResult:
 
 
 def solve_wall_clearance_condition(entry: ManifestEntry) -> EvaluationResult:
-    v0 = _number_from_any_known(entry, ["v0", "velocity", "speed"])
-    angle = math.radians(_number_from_any_known(entry, ["angle", "launch_angle"]))
-    wall_x = _number_from_any_known(entry, ["wall_distance", "wall_x", "x"])
+    v0 = _optional_number_from_any_known(entry, ["v0", "velocity", "speed"])
+    angle_value = _optional_number_from_any_known(entry, ["angle", "launch_angle"])
+    angle = math.radians(angle_value) if angle_value is not None else None
+    wall_x = _optional_number_from_any_known(entry, ["wall_distance", "wall_x", "x"])
     wall_height = _number_from_any_known(entry, ["wall_height", "obstacle_height"])
     g = _number_from_known(entry, "g", default=10.0)
     launch_height = _number_from_any_known(entry, ["launch_height", "initial_height", "y0"], default=0.0)
+    wall_x1 = _optional_number_from_any_known(entry, ["wall_x1", "x1"])
+    wall_x2 = _optional_number_from_any_known(entry, ["wall_x2", "x2"])
+    if (v0 is None or angle is None) and wall_x1 is not None and wall_x2 is not None and math.isclose(launch_height, 0.0, abs_tol=1e-12):
+        x1, x2 = sorted([wall_x1, wall_x2])
+        curvature = wall_height / (x1 * x2)
+        tan_angle = wall_height * (x1 + x2) / (x1 * x2)
+        angle = math.atan(tan_angle)
+        cos_angle = math.cos(angle)
+        v0 = math.sqrt(g / (2 * curvature * cos_angle * cos_angle))
+        return _symbolic_result(
+            entry,
+            computed_text=f"theta = {math.degrees(angle):g} deg; u = {v0:g} m/s",
+            trace=[
+                "For two equal-height clearances, write the trajectory as y = ax - bx^2.",
+                f"Since y({x1:g}) = y({x2:g}) = {wall_height:g}, b = h/(x1*x2) = {curvature:g}.",
+                f"a = b(x1+x2), so tan(theta) = {tan_angle:g}.",
+                f"Using b = g/(2u^2 cos^2(theta)) gives u = {v0:g} m/s.",
+            ],
+        )
+    if v0 is None or angle is None or wall_x is None:
+        raise ValueError(f"{entry.label}: missing launch speed, launch angle, or wall distance")
     cos_angle = math.cos(angle)
     if math.isclose(cos_angle, 0.0, abs_tol=1e-12):
         raise ValueError(f"{entry.label}: vertical launch never reaches wall distance {wall_x:g}")
@@ -1154,14 +1571,19 @@ SOLVERS: dict[str, Solver] = {
     "level_ground_time_to_peak": solve_level_ground_time_to_peak,
     "level_ground_position_at_time": solve_level_ground_position_at_time,
     "level_ground_velocity_at_time": solve_level_ground_velocity_at_time,
+    "vertical_component_height_times": solve_vertical_component_height_times,
+    "trajectory_equation_from_launch": solve_trajectory_equation_from_launch,
+    "monkey_hunter_condition": solve_monkey_hunter_condition,
     "same_height_times_initial_speed": solve_same_height_times_initial_speed,
     "trajectory_equation_max_height": solve_trajectory_equation_max_height,
     "projectile_height_scaling": solve_projectile_height_scaling,
     "range_angle_scaling": solve_range_angle_scaling,
+    "two_projectile_same_speed_comparison": solve_two_projectile_same_speed_comparison,
     "range_equals_max_height_angle": solve_range_equals_max_height_angle,
     "level_ground_launch_angle_from_range": solve_level_ground_launch_angle_from_range,
     "height_launch_time_of_flight": solve_height_launch_time_of_flight,
     "height_launch_range": solve_height_launch_range,
+    "height_launch_multi_quantity": solve_height_launch_multi_quantity,
     "height_launch_horizontal_scenario": solve_height_launch_horizontal_scenario,
     "wall_height_at_distance": solve_wall_height_at_distance,
     "wall_clearance_condition": solve_wall_clearance_condition,
@@ -1279,9 +1701,13 @@ def _number_from_known_or_time_interval(entry: ManifestEntry, key: str) -> float
 def _requested_level_ground_outputs(question_text: str) -> list[str]:
     text = question_text.lower()
     outputs: list[str] = []
-    if any(marker in text for marker in ("range", "horizontal distance", "how far")):
+    if any(marker in text for marker in ("initial speed", "speed needed", "speed of projection")):
+        outputs.append("initial_speed")
+    if any(marker in text for marker in ("angle of projection", "launch angle", "find theta", "find the angle", "angle theta")):
+        outputs.append("launch_angle")
+    if any(marker in text for marker in ("range", "horizontal distance", "distance from", "how far")):
         outputs.append("range")
-    if any(marker in text for marker in ("time of flight", "flight time", "total time")):
+    if any(marker in text for marker in ("time of flight", "flight time", "total time", "stays in the air", "stays in air")):
         outputs.append("time_of_flight")
     peak_time = any(marker in text for marker in ("maximum height", "highest point", "top", "peak")) and any(
         marker in text for marker in ("time to", "time taken", "how long", "when")
@@ -1293,6 +1719,26 @@ def _requested_level_ground_outputs(question_text: str) -> list[str]:
             outputs.append("maximum_height")
     if any(marker in text for marker in ("components", "component", "u_x", "ux", "uₓ", "u_y", "uy", "uᵧ", "horizontal velocity", "vertical velocity")):
         outputs.append("components")
+    return list(dict.fromkeys(outputs))
+
+
+def _requested_height_launch_outputs(question_text: str) -> list[str]:
+    text = question_text.lower()
+    outputs: list[str] = []
+    if any(marker in text for marker in ("time of flight", "flight time", "total time", "how long", "remains in air", "time taken", "time to hit", "time before", "time after", "stays in the air", "stays in air")):
+        outputs.append("time_of_flight")
+    if any(marker in text for marker in ("range", "horizontal distance", "distance covered", "how far", "lands", "where", "from the base", "from the building", "from the cliff")):
+        outputs.append("range")
+    if any(marker in text for marker in ("maximum height", "max height", "highest point")):
+        outputs.append("maximum_height")
+    if any(marker in text for marker in ("impact speed", "speed just before", "speed before impact", "speed before hitting", "velocity just before", "impact velocity")):
+        outputs.append("impact_speed")
+    if any(marker in text for marker in ("angle made by the velocity", "angle with the horizontal", "impact angle")):
+        outputs.append("impact_angle")
+    if any(marker in text for marker in ("horizontal speed", "initial horizontal speed", "horizontal velocity", "initial speed", "with which it left")):
+        outputs.append("horizontal_speed")
+    if re.search(r"\bheight\s+(?:of\s+the\s+)?(?:tower|cliff|building|platform|table|h)\b", text) or re.search(r"\bfind\s+h\b", text):
+        outputs.append("height")
     return list(dict.fromkeys(outputs))
 
 

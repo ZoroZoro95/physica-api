@@ -44,6 +44,8 @@ def _infer_world(text: str) -> str:
         return "staircase"
     if "plane oa" in text and "plane ob" in text:
         return "two_inclines"
+    if _is_two_projectile_same_speed_comparison(text):
+        return "multi_projectile"
     if "wall" in text or "obstacle" in text or "barrier" in text:
         return "wall"
     if "inclined" in text or "incline" in text:
@@ -54,16 +56,27 @@ def _infer_world(text: str) -> str:
         return "multi_projectile"
     if "projectile a" in text and "projectile b" in text and _contains_any(text, ["collide", "collision"]):
         return "multi_projectile"
-    if "target" in text or _has_coordinate_pair(text):
+    if "lands on a platform" in text or "target" in text or _has_coordinate_pair(text):
         return "target"
-    if "tower" in text or "cliff" in text or "from a height" in text or "height of" in text:
+    if _is_height_launch_context(text):
         return "height_launch"
     return "level_ground"
 
 
 def _infer_unknown(text: str) -> str:
+    if _is_two_projectile_same_speed_comparison(text):
+        return "same_speed_comparison"
     if _contains_any(text, ["derive", "derivation", "prove", "show that"]) and _contains_any(text, ["time of flight", "flight time"]):
         return "time_of_flight_derivation"
+    if _contains_any(text, ["wall", "barrier", "obstacle"]) and _contains_any(text, ["clear", "clears", "cross", "crosses"]):
+        return "clears_wall_condition"
+    if ("coordinates are" in text or ("x" in text and "y" in text and "=" in text)) and _contains_any(
+        text,
+        ["initial horizontal velocity", "initial vertical velocity", "initial speed", "angle of projection"],
+    ):
+        return "position_at_time"
+    if "passes through" in text and "high after" in text and "horizontal velocity" in text:
+        return "position_at_time"
     if len(_requested_level_ground_outputs(text)) >= 2:
         return "level_ground_multi_quantities"
     if _contains_any(text, ["splits into", "split into", "splits at", "split at"]) and _contains_any(text, ["highest point", "apex"]):
@@ -86,6 +99,11 @@ def _infer_unknown(text: str) -> str:
         return "change_in_velocity"
     if _contains_any(text, ["position after", "coordinates after", "position at", "coordinates at"]):
         return "position_at_time"
+    if _contains_any(text, ["height of the projectile when", "height of the ball when", "height when", "height and vertical velocity when"]) and _contains_any(
+        text,
+        ["covered", "travelled", "traveled", "away", "horizontal range"],
+    ):
+        return "position_at_time"
     if _contains_any(text, ["velocity after", "velocity at", "velocity one", "speed after", "speed at"]) and _contains_any(text, ["after", "later", "t =", "time", "second"]):
         return "velocity_at_time"
     if _contains_any(text, ["same height", "same vertical height"]) and _contains_any(text, ["two times", "at times", "observed at"]):
@@ -94,7 +112,7 @@ def _infer_unknown(text: str) -> str:
         return "maximum_height_from_trajectory_equation"
     if _contains_any(text, ["initial velocity is halved", "velocity is halved", "speed is halved"]):
         return "scaled_projectile_quantity"
-    if "range" in text and _contains_any(text, ["maximum height", "greatest height"]) and _contains_any(text, ["same", "equal", "equals"]):
+    if "range" in text and _contains_any(text, ["maximum height", "greatest height"]) and _contains_any(text, ["same", "equal", "equals", "times"]):
         return "launch_angle_from_range_height_relation"
     if "same velocity" in text and "range" in text and _contains_any(text, ["another angle", "angle of", "projected at"]):
         return "range_angle_scaling"
@@ -104,6 +122,8 @@ def _infer_unknown(text: str) -> str:
         return "time_when_velocity_angle"
     if _asks_time_to_peak(text):
         return "time_to_peak"
+    if "lands on a platform" in text and _contains_any(text, ["angle", "angles"]):
+        return "launch_angle"
     if _contains_any(text, ["launch angle", "launch angles", "angle of projection", "what angle"]) and (
         "range" in text or "target" in text or _has_coordinate_pair(text)
     ):
@@ -147,9 +167,14 @@ def _infer_constraints(text: str) -> set[str]:
         constraints.add("air_drag")
     if _contains_any(text, ["wall", "barrier", "obstacle"]):
         constraints.add("fixed_horizontal_distance")
-    if _contains_any(text, ["thrown horizontally", "projected horizontally", "projected horizontal", "leaves a cliff horizontally", "leaves horizontally", "horizontal velocity"]):
+    if (
+        "no horizontal velocity" not in text
+        and "without horizontal velocity" not in text
+        and not ("initial horizontal velocity" in text and "find" in text)
+        and _contains_any(text, ["thrown horizontally", "projected horizontally", "projected horizontal", "launched horizontally", "fired horizontally", "horizontally", "leaves a cliff horizontally", "leaves horizontally", "horizontal speed", "horizontal velocity", "rolls off"])
+    ):
         constraints.add("horizontal")
-    if _contains_any(text, ["from a height", "cliff", "tower"]):
+    if _is_height_launch_context(text):
         constraints.add("initial_height")
     if "range" in text and ("angle" in text or "angles" in text):
         constraints.add("given_range")
@@ -164,17 +189,24 @@ def _infer_givens(text: str) -> list[str]:
     _append_if_value(givens, "angle", _infer_launch_angle(text))
     _append_if_value(givens, "g", _infer_gravity(text))
     _append_if_value(givens, "target", _infer_point(text))
+    _append_if_value(givens, "target", _infer_platform_target(text))
     _append_if_value(givens, "height", _infer_height(text))
     _append_if_value(givens, "time", _infer_time_value(text))
     _append_if_value(givens, "range", _infer_range_value(text))
     wall_values = _infer_wall_values(text)
     _append_if_value(givens, "wall_distance", wall_values.get("distance"))
     _append_if_value(givens, "wall_height", wall_values.get("height"))
+    if _is_two_projectile_same_speed_comparison(text):
+        angles = _infer_two_angle_values(text)
+        _append_if_value(givens, "angle1", angles.get("angle1"))
+        _append_if_value(givens, "angle2", angles.get("angle2"))
     givens.extend(_infer_two_projectile_components(text))
     return givens
 
 
 def _engine_from_spec(world: str, unknown: str, constraints: set[str]) -> str | None:
+    if world == "multi_projectile" and unknown == "same_speed_comparison":
+        return "two_projectile_same_speed_comparison"
     if world == "level_ground":
         if unknown == "level_ground_multi_quantities":
             return "level_ground_multi_quantity"
@@ -217,6 +249,8 @@ def _engine_from_spec(world: str, unknown: str, constraints: set[str]) -> str | 
     if world == "moving_wedge":
         return None
     if world == "height_launch":
+        if unknown == "level_ground_multi_quantities":
+            return "height_launch_horizontal_scenario" if "horizontal" in constraints else "height_launch_multi_quantity"
         if unknown == "unknown" and "horizontal" in constraints:
             return "height_launch_horizontal_scenario"
         if unknown == "time_of_flight":
@@ -267,10 +301,13 @@ def _infer_velocity_value(text: str) -> str | None:
 
 
 def _infer_launch_angle(text: str) -> str | None:
-    if _contains_any(text, ["thrown horizontally", "projected horizontally", "projected horizontal"]):
+    if (
+        "no horizontal velocity" not in text
+        and "without horizontal velocity" not in text
+        and not ("initial horizontal velocity" in text and "find" in text)
+        and _contains_any(text, ["thrown horizontally", "projected horizontally", "projected horizontal", "launched horizontally", "fired horizontally", "horizontally", "horizontal speed", "horizontal velocity", "rolls off"])
+    ):
         return "0deg"
-    if _is_vertical_upward_launch(text):
-        return "90deg"
     patterns = [
         r"(?:angle|at|making an angle of|inclination)\s*(?:of\s*)?([0-9]+(?:\.[0-9]+)?)\s*(?:deg|degree|degrees)",
         r"([0-9]+(?:\.[0-9]+)?)\s*(?:deg|degree|degrees)",
@@ -278,8 +315,29 @@ def _infer_launch_angle(text: str) -> str | None:
     for pattern in patterns:
         match = re.search(pattern, text)
         if match:
-            return f"{match.group(1)}deg"
+            window = text[max(0, match.start() - 40) : match.end() + 40]
+            sign = "-" if "below" in window or "downward" in window else ""
+            return f"{sign}{match.group(1)}deg"
+    if _is_vertical_upward_launch(text):
+        return "90deg"
     return None
+
+
+def _infer_two_angle_values(text: str) -> dict[str, str]:
+    angles = re.findall(r"([0-9]+(?:\.[0-9]+)?)\s*(?:deg|degree|degrees|°)", text)
+    if len(angles) < 2:
+        return {}
+    return {"angle1": f"{angles[0]}deg", "angle2": f"{angles[1]}deg"}
+
+
+def _is_two_projectile_same_speed_comparison(text: str) -> bool:
+    if not _contains_any(text, ["two projectiles", "two particles", "two bodies"]):
+        return False
+    if not _contains_any(text, ["same speed", "same velocity", "same initial speed", "same initial velocity"]):
+        return False
+    if len(re.findall(r"[0-9]+(?:\.[0-9]+)?\s*(?:deg|degree|degrees|°)", text)) < 2:
+        return False
+    return "compare" in text and all(marker in text for marker in ("time", "height", "range"))
 
 
 def _asks_time_to_peak(text: str) -> bool:
@@ -298,7 +356,11 @@ def _requested_level_ground_outputs(text: str) -> list[str]:
     if _is_special_non_composite_context(text):
         return []
     outputs: list[str] = []
-    if _contains_any(text, ["range", "horizontal distance", "how far"]):
+    if _contains_any(text, ["initial speed", "speed needed", "speed of projection"]):
+        outputs.append("initial_speed")
+    if _contains_any(text, ["angle of projection", "launch angle", "find theta", "find the angle", "angle theta"]):
+        outputs.append("launch_angle")
+    if _contains_any(text, ["range", "horizontal distance", "distance from", "how far"]):
         outputs.append("range")
     if _contains_any(text, ["time of flight", "flight time", "total time"]):
         outputs.append("time_of_flight")
@@ -318,10 +380,32 @@ def _is_special_non_composite_context(text: str) -> bool:
     if any(marker in text for marker in ("changed gravity", "gravity changes", "effective gravity", "enters a region")):
         return True
     if "range" in text and any(marker in text for marker in ("maximum height", "greatest height")) and any(
-        marker in text for marker in ("same", "equal", "equals")
+        marker in text for marker in ("same", "equal", "equals", "times")
     ):
         return True
     return False
+
+
+def _is_height_launch_context(text: str) -> bool:
+    return any(
+        marker in text
+        for marker in (
+            "cliff",
+            "tower",
+            "building",
+            "balcony",
+            "platform",
+            "table",
+            "cart",
+            "from a height",
+            "from the top",
+            "from the edge",
+            "above the ground",
+        )
+    ) or re.search(
+        r"(?:fall|falls|fell|drop|drops|dropped)\s+[0-9]+(?:\.[0-9]+)?\s*m\s+(?:to|before|until)\s+(?:the\s+)?ground",
+        text,
+    ) is not None
 
 
 def _is_vertical_upward_launch(text: str) -> bool:
@@ -343,11 +427,14 @@ def _infer_gravity(text: str) -> str | None:
 
 def _infer_height(text: str) -> str | None:
     patterns = [
-        r"(?:from|on)\s+a\s+([0-9]+(?:\.[0-9]+)?)\s*m\s+high\s+(?:cliff|tower|building)",
-        r"([0-9]+(?:\.[0-9]+)?)\s*m\s+high\s+(?:cliff|tower|building)",
-        r"(?:cliff|tower|building)\s+([0-9]+(?:\.[0-9]+)?)\s*m\s+high",
-        r"(?:from\s+a\s+)?([0-9]+(?:\.[0-9]+)?)\s*m\s+(?:cliff|tower|building)",
+        r"(?:from|on)\s+a\s+([0-9]+(?:\.[0-9]+)?)\s*m\s+(?:high|tall)\s+(?:cliff|tower|building|platform|table|balcony|cart)",
+        r"([0-9]+(?:\.[0-9]+)?)\s*m\s+(?:high|tall)\s+(?:cliff|tower|building|platform|table|balcony|cart)",
+        r"(?:cliff|tower|building|platform|table|balcony|cart)\s+(?:is\s+)?([0-9]+(?:\.[0-9]+)?)\s*m\s+(?:high|tall)",
+        r"(?:from\s+a\s+)?([0-9]+(?:\.[0-9]+)?)\s*m\s+(?:cliff|tower|building|platform|table|balcony|cart)",
         r"(?:height|height of|from a height of)\s*([0-9]+(?:\.[0-9]+)?)\s*m",
+        r"(?:table|platform|balcony|cart)\s+of\s+height\s+([0-9]+(?:\.[0-9]+)?)\s*m",
+        r"(?:balcony|platform|table|cart)\s+([0-9]+(?:\.[0-9]+)?)\s*m\s+above\s+(?:the\s+)?ground",
+        r"([0-9]+(?:\.[0-9]+)?)\s*m\s+above\s+(?:the\s+)?ground",
         r"(?:fall|falls|fell|drop|drops|dropped)\s+([0-9]+(?:\.[0-9]+)?)\s*m\s+(?:to|before|until)\s+(?:the\s+)?ground",
         r"([0-9]+(?:\.[0-9]+)?)\s*m\s+to\s+(?:the\s+)?ground",
     ]
@@ -370,6 +457,10 @@ def _infer_range_value(text: str) -> str | None:
     patterns = [
         r"(?:range|horizontal range)\s*(?:of|=|is|equal to|equals|give|gives)?\s*([0-9]+(?:\.[0-9]+)?)\s*m",
         r"([0-9]+(?:\.[0-9]+)?)\s*m\s+(?:range|horizontal range)",
+        r"lands?\s+([0-9]+(?:\.[0-9]+)?)\s*m\s+(?:away|from)",
+        r"lands?\s+[^.?\n]*?\b([0-9]+(?:\.[0-9]+)?)\s*m\s+(?:away|from)",
+        r"(?:horizontal distance|distance)\s+(?:of\s+)?([0-9]+(?:\.[0-9]+)?)\s*m",
+        r"([0-9]+(?:\.[0-9]+)?)\s*m\s+(?:from the base|from the foot|away from the base)",
     ]
     for pattern in patterns:
         match = re.search(pattern, text)
@@ -384,6 +475,7 @@ def _infer_wall_values(text: str) -> dict[str, str]:
     distance_patterns = [
         rf"{obstacle}\s+([0-9]+(?:\.[0-9]+)?)\s*m\s+away",
         rf"{obstacle}\s+is\s+([0-9]+(?:\.[0-9]+)?)\s*m\s+away",
+        rf"{obstacle}\s+is\s+([0-9]+(?:\.[0-9]+)?)\s*m\s+from\s+(?:the\s+)?(?:point|projector|projection|launch)",
         rf"at\s+a\s+{obstacle}\s+([0-9]+(?:\.[0-9]+)?)\s*m\s+away",
         rf"{obstacle}\s+at\s+([0-9]+(?:\.[0-9]+)?)\s*m",
     ]
@@ -426,6 +518,20 @@ def _infer_two_projectile_components(text: str) -> list[str]:
 def _infer_point(text: str) -> str | None:
     match = re.search(r"\(\s*([-+]?[0-9]+(?:\.[0-9]+)?)\s*m?\s*,\s*([-+]?[0-9]+(?:\.[0-9]+)?)\s*m?\)", text)
     return f"({match.group(1)}m,{match.group(2)}m)" if match else None
+
+
+def _infer_platform_target(text: str) -> str | None:
+    match = re.search(
+        r"platform\s+([0-9]+(?:\.[0-9]+)?)\s*m\s+high\s+and\s+([0-9]+(?:\.[0-9]+)?)\s*m\s+away",
+        text,
+    )
+    if match:
+        return f"({match.group(2)}m,{match.group(1)}m)"
+    match = re.search(
+        r"platform\s+([0-9]+(?:\.[0-9]+)?)\s*m\s+high.*?([0-9]+(?:\.[0-9]+)?)\s*m\s+away",
+        text,
+    )
+    return f"({match.group(2)}m,{match.group(1)}m)" if match else None
 
 
 def _has_coordinate_pair(text: str) -> bool:

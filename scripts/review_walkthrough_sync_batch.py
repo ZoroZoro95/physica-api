@@ -28,12 +28,15 @@ from core.projectile_engine.animation_scene import build_animation_scene_spec
 from core.walkthrough_sync_audit import audit_walkthrough_sync, render_beat_pairing_markdown
 
 
+SCREENSHOT_DIR = Path(os.getenv("PHYSICA_SCREENSHOT_DIR", str(Path.home() / "Desktop"))).expanduser()
 DEFAULT_IMAGES = [
-    "/Users/siddharth/Desktop/Screenshot 2026-05-25 at 9.44.11 PM.png",
-    "/Users/siddharth/Desktop/Screenshot 2026-05-25 at 9.44.18 PM.png",
-    "/Users/siddharth/Desktop/Screenshot 2026-05-25 at 9.44.30 PM.png",
-    "/Users/siddharth/Desktop/Screenshot 2026-05-25 at 9.44.42 PM.png",
-    "/Users/siddharth/Desktop/Screenshot 2026-05-25 at 12.41.58 PM.png",
+    str(SCREENSHOT_DIR / "Screenshot 2026-05-25 at 9.44.11 PM.png"),
+    str(SCREENSHOT_DIR / "Screenshot 2026-05-25 at 9.44.18 PM.png"),
+    str(SCREENSHOT_DIR / "Screenshot 2026-05-25 at 9.44.24 PM.png"),
+    str(SCREENSHOT_DIR / "Screenshot 2026-05-25 at 9.44.30 PM.png"),
+    str(SCREENSHOT_DIR / "Screenshot 2026-05-25 at 9.44.36 PM.png"),
+    str(SCREENSHOT_DIR / "Screenshot 2026-05-25 at 9.44.42 PM.png"),
+    str(SCREENSHOT_DIR / "Screenshot 2026-05-25 at 12.41.58 PM.png"),
 ]
 
 
