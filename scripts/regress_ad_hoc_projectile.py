@@ -25,6 +25,7 @@ class Case:
     expected_option: str | None = None
     expected_value: float | None = None
     expected_text_contains: list[str] | None = None
+    expected_trace_contains: list[str] | None = None
     requested_quantity: str | None = None
     suggested_engine_case: str | None = None
     givens: list[str] | None = None
@@ -351,6 +352,17 @@ CASES = [
         expected_engine_case="height_launch_horizontal_scenario",
     ),
     Case(
+        name="horizontal tower impact speed and angle",
+        question=(
+            "A ball is thrown from a 100 m tall tower with speed 20 m/s horizontally. "
+            "Find its impact speed and the angle made by the velocity with the horizontal just before impact."
+        ),
+        options=[],
+        expected_engine_case="height_launch_horizontal_scenario",
+        expected_text_contains=["impact speed = 48.9898 m/s", "impact angle = 65.9052 deg below horizontal"],
+        expected_trace_contains=["Impact vertical velocity", "Impact speed is", "tan^-1"],
+    ),
+    Case(
         name="horizontal cliff fall distance asks time",
         question=(
             "Question 3: If a stone is thrown horizontally from a cliff with a velocity of 10 m/s, "
@@ -656,6 +668,11 @@ def main() -> None:
             missing = [item for item in case.expected_text_contains if item not in text]
             if missing:
                 failures.append(f"{case.name}: answer missing {missing}; answer={text!r}")
+        if case.expected_trace_contains:
+            trace_text = "\n".join(result.trace or [])
+            missing = [item for item in case.expected_trace_contains if item not in trace_text]
+            if missing:
+                failures.append(f"{case.name}: trace missing {missing}; trace={trace_text!r}")
 
     if failures:
         for failure in failures:

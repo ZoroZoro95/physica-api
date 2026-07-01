@@ -1125,26 +1125,37 @@ def solve_height_launch_horizontal_scenario(entry: ManifestEntry) -> EvaluationR
         outputs = ["time_of_flight", "range", "impact_speed"]
     output_text: list[str] = []
     if "time_of_flight" in outputs:
-        output_text.append(f"time={time:g} s")
+        output_text.append(f"time = {time:g} s")
     if "range" in outputs:
-        output_text.append(f"range={range_value:g} m")
+        output_text.append(f"range = {range_value:g} m")
     if "height" in outputs:
-        output_text.append(f"height={height:g} m")
+        output_text.append(f"height = {height:g} m")
     if "components" in outputs or "horizontal_speed" in outputs:
-        output_text.append(f"v_x={v0:g} m/s")
+        output_text.append(f"v_x = {v0:g} m/s")
     if "impact_speed" in outputs:
-        output_text.append(f"|v|_impact={impact_speed:g} m/s")
+        output_text.append(f"impact speed = {impact_speed:g} m/s")
     if "impact_angle" in outputs:
-        output_text.append(f"impact angle={impact_angle:g} deg below horizontal")
+        output_text.append(f"impact angle = {impact_angle:g} deg below horizontal")
+    trace = [
+        "Horizontal launch has u_y = 0, so vertical motion and horizontal motion separate cleanly.",
+        f"Vertical motion gives h = 1/2 g t^2, so h = {height:g} m and t = {time:g} s.",
+        f"Horizontal velocity stays constant: v_x = {v0:g} m/s.",
+    ]
+    if "range" in outputs:
+        trace.append(f"Horizontal motion gives R = v_x t = {v0:g} * {time:g} = {range_value:g} m.")
+    if "impact_speed" in outputs or "impact_angle" in outputs:
+        trace.append(f"Impact vertical velocity is v_y = -gt = {impact_vy:g} m/s.")
+    if "impact_speed" in outputs:
+        trace.append(f"Impact speed is |v| = sqrt(v_x^2 + v_y^2) = sqrt({v0:g}^2 + {abs(impact_vy):g}^2) = {impact_speed:g} m/s.")
+    if "impact_angle" in outputs:
+        trace.append(
+            f"The velocity angle below horizontal is phi = tan^-1(|v_y|/v_x) = "
+            f"tan^-1({abs(impact_vy):g}/{abs(v0):g}) = {impact_angle:g} deg."
+        )
     return _symbolic_result(
         entry,
-        computed_text=", ".join(output_text),
-        trace=[
-            "Horizontal launch has u_y=0, so vertical motion and horizontal motion separate cleanly.",
-            f"Vertical motion gives h = 1/2 g t^2, so h={height:g} m and t={time:g} s.",
-            f"Horizontal motion gives R = v_x t, so v_x={v0:g} m/s and R={range_value:g} m.",
-            f"At impact, v_y = -gt = {impact_vy:g} m/s and speed is sqrt(v_x^2 + v_y^2) = {impact_speed:g} m/s.",
-        ],
+        computed_text="; ".join(output_text),
+        trace=trace,
     )
 
 
