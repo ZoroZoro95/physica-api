@@ -37,6 +37,7 @@ FRONTEND_DIRS = [
     "components",
     "public",
     "renderer",
+    "types",
     "utils",
 ]
 

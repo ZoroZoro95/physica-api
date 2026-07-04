@@ -53,7 +53,7 @@ def main() -> int:
     os.environ.setdefault("PYTHONPYCACHEPREFIX", "/private/tmp/text23d-pycache")
 
     checks = [
-        Check("python syntax: deploy-critical modules", [sys.executable, "-m", "py_compile", "core/main.py", "core/auth.py", "core/db.py", "core/feedback_loop.py", "core/walkthrough_sync_audit.py"]),
+        Check("python syntax: deploy-critical modules", [sys.executable, "-m", "py_compile", "core/main.py", "core/auth.py", "core/db.py", "core/feedback_loop.py", "core/walkthrough_sync_audit.py", "core/projectile_engine/visual_contract.py", "scripts/audit_beat_visual_spec.py"]),
         Check("auth DB regression", [sys.executable, "scripts/regress_auth_db.py"]),
         Check("feedback DB regression", [sys.executable, "scripts/regress_feedback_loop_db.py"]),
         Check("question extraction normalization", [sys.executable, "scripts/regress_question_extraction_normalization.py"]),
@@ -64,6 +64,7 @@ def main() -> int:
         Check("walkthrough sync audit regressions", [sys.executable, "scripts/regress_walkthrough_sync_audit.py"]),
         Check("projectile DPP manifest validation", [sys.executable, "scripts/validate_projectile_manifest.py"]),
         Check("projectile practice-60 acceptance", [sys.executable, "scripts/run_projectile_practice_acceptance.py", "--fail-on-issues"]),
+        Check("projectile practice-60 beat visual spec audit", [sys.executable, "scripts/audit_beat_visual_spec.py", "--audit-dir", "questions/projectile_practice_runs/latest", "--expected-cases", "60", "--write-json", "questions/projectile_practice_runs/latest/beat_visual_spec.json"]),
         Check("landing media size", [sys.executable, "scripts/check_landing_media.py"]),
     ]
     if not args.skip_frontend:

@@ -341,7 +341,19 @@ def _is_two_projectile_same_speed_comparison(text: str) -> bool:
 
 
 def _asks_time_to_peak(text: str) -> bool:
-    peak_markers = ["maximum height", "highest point", "top", "peak"]
+    peak_markers = [
+        "maximum height",
+        "max height",
+        "highest point",
+        "highest height",
+        "topmost point",
+        "top of its path",
+        "top of the path",
+        "top of trajectory",
+        "top of the trajectory",
+        "peak",
+        "apex",
+    ]
     time_markers = ["time to", "time taken", "how long", "when"]
     return _contains_any(text, peak_markers) and _contains_any(text, time_markers)
 
@@ -362,7 +374,16 @@ def _requested_level_ground_outputs(text: str) -> list[str]:
         outputs.append("launch_angle")
     if _contains_any(text, ["range", "horizontal distance", "distance from", "how far"]):
         outputs.append("range")
-    if _contains_any(text, ["time of flight", "flight time", "total time"]):
+    if _contains_any(text, [
+        "time of flight",
+        "flight time",
+        "total time",
+        "time taken",
+        "reach the ground",
+        "to reach the ground",
+        "hits the ground",
+        "hit the ground",
+    ]):
         outputs.append("time_of_flight")
     if _asks_time_to_peak(text):
         outputs.append("time_to_peak")

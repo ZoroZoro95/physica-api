@@ -4,6 +4,8 @@ import json
 import re
 from typing import Any
 
+from .projectile_engine.visual_contract import FORBIDDEN_TEXT_PATTERNS, validate_beat_visual_spec
+
 
 def audit_walkthrough_sync(
     *,
@@ -51,9 +53,30 @@ def audit_walkthrough_sync(
             pairings.append(_pairing(beat, {}, "missing_storyboard", live_vectors, scene_point_ids))
             continue
         paired_visual_plan = paired.get("visual_plan") or {}
+        beat_visual_spec = beat.get("beat_visual_spec") or (beat.get("visual_plan") or {}).get("beat_visual_spec") or {}
+        storyboard_visual_spec = paired.get("beat_visual_spec") or paired_visual_plan.get("beat_visual_spec") or {}
         pairings.append(_pairing(beat, paired, "paired", live_vectors, scene_point_ids))
         if paired_visual_plan.get("type") == "text_only":
             continue
+        if not isinstance(beat_visual_spec, dict) or not beat_visual_spec:
+            beat_findings.append(f"{title}: beat is missing beat_visual_spec.")
+        if not isinstance(storyboard_visual_spec, dict) or not storyboard_visual_spec:
+            beat_findings.append(f"{title}: storyboard is missing beat_visual_spec.")
+        if isinstance(beat_visual_spec, dict) and isinstance(storyboard_visual_spec, dict) and beat_visual_spec and storyboard_visual_spec:
+            if beat_visual_spec.get("family") != storyboard_visual_spec.get("family") or beat_visual_spec.get("beat") != storyboard_visual_spec.get("beat"):
+                beat_findings.append(
+                    f"{title}: beat_visual_spec mismatch beat={beat_visual_spec.get('family')}/{beat_visual_spec.get('beat')} "
+                    f"storyboard={storyboard_visual_spec.get('family')}/{storyboard_visual_spec.get('beat')}."
+                )
+            spec_text = " ".join([
+                beat_text,
+                json.dumps(paired.get("labels") or [], ensure_ascii=False),
+                json.dumps(paired.get("visual_state") or {}, ensure_ascii=False),
+                live_vector_labels,
+            ])
+            for error in validate_beat_visual_spec(storyboard_visual_spec, text=spec_text):
+                beat_findings.append(f"{title}: {error}.")
+            beat_findings.extend(forbidden_visual_findings(title, storyboard_visual_spec, spec_text))
         overlays = set(paired.get("overlays") or [])
         visible_vectors = set(paired.get("visible_vectors") or [])
         visual_action = str(paired.get("visual_action") or "")
@@ -182,6 +205,16 @@ def generic_teacher_text(text: str) -> bool:
     return any(phrase in text for phrase in weak_phrases)
 
 
+def forbidden_visual_findings(title: str, spec: dict[str, Any], text: str) -> list[str]:
+    findings: list[str] = []
+    for forbidden in spec.get("must_not_show") or []:
+        for pattern in FORBIDDEN_TEXT_PATTERNS.get(str(forbidden), ()):
+            if re.search(pattern, text, re.I):
+                findings.append(f"{title}: forbidden visual `{forbidden}` appears in synced labels/text.")
+                break
+    return findings
+
+
 def score_walkthrough(beats: list[dict[str, Any]], findings: list[str]) -> int:
     if not beats:
         return 0
@@ -226,6 +259,7 @@ def _pairing(
         "status": status,
         "learner_message": beat.get("learner_message") or "",
         "beat_visual": beat.get("visual_instruction") or "",
+        "beat_visual_spec": storyboard_step.get("beat_visual_spec") or (storyboard_step.get("visual_plan") or {}).get("beat_visual_spec") or {},
         "animation_action": storyboard_step.get("visual_action") or "",
         "visible_vectors": [str(item) for item in visible_vector_patterns],
         "overlays": overlays,

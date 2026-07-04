@@ -3,6 +3,7 @@ from __future__ import annotations
 import re
 
 from .models import EvaluationResult
+from .visual_contract import attach_beat_visual_spec
 
 
 def build_solution_walkthrough(result: EvaluationResult) -> dict:
@@ -127,7 +128,7 @@ def _equation_plan_walkthrough(result: EvaluationResult) -> list[dict]:
                 explanation=invariant_explanation,
                 animation_intent="show_key_projectile_invariant",
                 focus_ids=invariant_focus,
-                student_goal="Understand what the question is really asking before calculating.",
+                student_goal=_invariant_student_goal(plan),
                 concept_used=_invariant_concept(plan),
                 equation="",
                 result="",
@@ -244,6 +245,8 @@ def _invariant_focus_ids(plan: dict) -> list[str]:
         return ["surface:inclined_plane", "incline:tangent_axis", "point:impact", "velocity:tangent_component", "answer"]
     if engine_case == "two_inclines_perpendicular_launch_impact":
         return ["plane_OA", "plane_OB", "point:P", "point:Q", "vector:u", "quantity:u"]
+    if engine_case.startswith("height_launch"):
+        return ["point:launch", "point:impact", "event:impact", "quantity:launch_height", "trajectory:path"]
     unknown = str(plan.get("unknown") or "").lower()
     goal = str(plan.get("goal") or "").lower()
     text = f"{unknown} {goal}"
@@ -271,6 +274,26 @@ def _invariant_concept(plan: dict) -> str:
     if "velocity" in unknown or "speed" in unknown:
         return "Velocity is resolved into horizontal and vertical components."
     return "Identify the quantity asked before choosing equations."
+
+
+def _invariant_student_goal(plan: dict) -> str:
+    engine_case = str(plan.get("engine_case") or "")
+    unknown = str(plan.get("unknown") or "the requested quantity").strip().replace("_", " ")
+    if engine_case.startswith("height_launch"):
+        return "Separate the horizontal motion from the vertical fall before solving the requested quantities."
+    if engine_case == "projectile_collides_with_sliding_particle_on_incline":
+        return "Set up both particles on the same incline axes before comparing their positions."
+    if engine_case == "two_inclines_perpendicular_launch_impact":
+        return "Mark both inclined planes and the perpendicular launch/impact directions before resolving velocity."
+    if "range" in unknown.lower():
+        return "Identify the launch and landing points before using the range relation."
+    if "height" in unknown.lower():
+        return "Locate the apex condition before calculating maximum height."
+    if "time" in unknown.lower():
+        return "Use vertical motion to decide the flight time before horizontal distance."
+    if "velocity" in unknown.lower() or "speed" in unknown.lower():
+        return "Resolve velocity into components before calculating the requested speed or angle."
+    return f"Identify the givens and the target quantity: {unknown}."
 
 
 def _invariant_explanation(plan: dict) -> str:
@@ -311,10 +334,12 @@ def _visual_action(*, id: str, title: str, formula: str, focus_ids: list[str], a
         return "show_normal_return"
     if "event:collision" in physics_text or "point:collision" in physics_text:
         return "highlight_collision"
-    if "same height" in lowered or "delta y" in lowered or "delta_y" in lowered or "vertical displacement" in lowered:
-        return "highlight_same_height"
     if "range" in lowered or "quantity:r" in lowered or "distance" in lowered:
         return "highlight_range"
+    if "event:impact" in physics_text or "ground-impact" in lowered or "quantity:launch_height" in physics_text:
+        return "highlight_vertical_motion"
+    if "same height" in lowered or "delta y" in lowered or "delta_y" in lowered or "vertical displacement" in lowered:
+        return "highlight_same_height"
     if "sqrt(2h" in lowered or "quantity:h" in lowered or " h/" in lowered or " h)" in lowered:
         return "highlight_apex"
     if "time" in lowered or "flight" in lowered or "quantity:t" in lowered:
@@ -377,6 +402,10 @@ def _trap_note(*, id: str, title: str, formula: str, explanation: str, focus_ids
     lowered = " ".join([id, title, formula, explanation, " ".join(focus_ids)]).lower()
     if "vertical" in lowered and ("time" in lowered or "flight" in lowered):
         return "Time of flight is decided by vertical motion; horizontal motion is used after time is known."
+    if "horizontal launch" in lowered or ("leaves horizontally" in lowered and ("u_y" in lowered or "uy" in lowered)):
+        return "Horizontal launch means the initial vertical component is zero; do not introduce an angle decomposition."
+    if ("horizontal velocity" in lowered or "v_x" in lowered or "u_x" in lowered) and ("constant" in lowered or "no horizontal force" in lowered):
+        return "Horizontal velocity stays constant because horizontal acceleration is zero."
     if "u_x" in lowered or "u_y" in lowered or "v_x" in lowered or "v_y" in lowered:
         return "Check whether the angle is measured from horizontal or vertical before choosing sin/cos."
     if "same height" in lowered or "delta y" in lowered:
@@ -1056,6 +1085,8 @@ def _generic_sub_reveals(
         return _incline_range_formula_sub_reveals(equation, substitution, result, focus_ids)
     if _is_indexed_collision_equation(equation):
         return _indexed_collision_sub_reveals(equation, substitution, result, focus_ids)
+    if _is_horizontal_zero_component_step(title=title, equation=equation, explanation=explanation, focus_ids=focus_ids):
+        return _horizontal_zero_component_sub_reveals(focus_ids)
     if _is_vector_resolution_text(step_id=step_id, title=title, equation=equation, focus_ids=focus_ids):
         return _vector_resolution_sub_reveals(equation, focus_ids)
     if equation:
@@ -1464,9 +1495,40 @@ def _vector_resolution_sub_reveals(equation: str, focus_ids: list[str]) -> list[
     ]
 
 
+def _is_horizontal_zero_component_step(*, title: str, equation: str, explanation: str, focus_ids: list[str]) -> bool:
+    lowered = " ".join([title, equation, explanation, " ".join(focus_ids)]).lower().replace(" ", "")
+    if "u_y=0" in lowered or "uy=0" in lowered or "uᵧ=0" in lowered:
+        return True
+    return "horizontallaunch" in lowered and ("verticalcomponent" in lowered or "initialvertical" in lowered)
+
+
+def _horizontal_zero_component_sub_reveals(focus_ids: list[str]) -> list[dict]:
+    launch_ids = list(dict.fromkeys(["point:launch", "velocity:x_component", "velocity:y_component", *focus_ids]))
+    return [
+        _sub_reveal(
+            "horizontal_launch_direction",
+            "The launch arrow is horizontal, so the initial velocity has no upward or downward part.",
+            "Show the horizontal launch arrow only.",
+            ["u_x = u"],
+            launch_ids,
+            ["velocity:x_component"],
+        ),
+        _sub_reveal(
+            "zero_vertical_component",
+            "Because the launch has no vertical part, the vertical component starts at zero.",
+            "Mark the vertical component as zero at the launch point.",
+            ["u_y = 0"],
+            launch_ids,
+            ["velocity:y_component"],
+        ),
+    ]
+
+
 def _formula_sub_reveals(equation: str, substitution: str, result: str, focus_ids: list[str]) -> list[dict]:
     if _is_zero_vertical_event_equation(equation):
         return _zero_vertical_event_sub_reveals(equation, substitution, result, focus_ids)
+    if _is_height_launch_positive_root_equation(equation):
+        return _height_launch_positive_root_sub_reveals(equation, substitution, result, focus_ids)
     if _is_nonzero_time_root_equation(equation):
         return _nonzero_time_root_sub_reveals(equation, substitution, result, focus_ids)
     parent = _parent_equation_for(equation)
@@ -1721,6 +1783,46 @@ def _nonzero_time_root_sub_reveals(equation: str, substitution: str, result: str
     return reveals
 
 
+def _height_launch_positive_root_sub_reveals(equation: str, substitution: str, result: str, focus_ids: list[str]) -> list[dict]:
+    reveals = [
+        _sub_reveal(
+            "start_from_ground_equation",
+            "Start from the ground-impact equation. Since launch height is nonzero, the equation does not factor into T times a linear term.",
+            "Highlight the height from launch level to the ground-impact point.",
+            ["0 = h + u_yT - 1/2 gT^2"],
+            focus_ids,
+            focus_ids,
+        ),
+        _sub_reveal(
+            "choose_positive_root",
+            "Solving the quadratic gives two mathematical roots. The negative root is before launch, so the physical impact time is the positive root.",
+            "Keep only the later impact event on the trajectory.",
+            [equation],
+            focus_ids,
+            focus_ids,
+        ),
+    ]
+    if substitution:
+        reveals.append(_sub_reveal(
+            "numeric_substitution",
+            "Now substitute the known values into the positive-root expression.",
+            "Replace symbols with known values.",
+            [substitution],
+            focus_ids,
+            focus_ids,
+        ))
+    if result:
+        reveals.append(_sub_reveal(
+            "result",
+            f"This gives {result}.",
+            "Highlight the computed impact time.",
+            [result],
+            ["answer", *focus_ids[:2]],
+            ["answer", *focus_ids[:2]],
+        ))
+    return reveals
+
+
 def _compact_equation(equation: str) -> str:
     return equation.lower().replace(" ", "").replace("−", "-")
 
@@ -1739,6 +1841,11 @@ def _is_nonzero_time_root_equation(equation: str) -> bool:
     if not lowered.startswith("t="):
         return False
     return any(token in lowered for token in ["2u_y/g", "2uy/g", "2usin", "2u*sin"])
+
+
+def _is_height_launch_positive_root_equation(equation: str) -> bool:
+    lowered = _compact_equation(equation)
+    return lowered.startswith("t=") and "sqrt" in lowered and "2gh" in lowered
 
 
 def _is_incline_return_time_equation(equation: str) -> bool:
@@ -1852,8 +1959,13 @@ def _visual_plan_for_beat(step: dict, sub_reveals: list[dict], result: Evaluatio
             "motion": {"mode": "freeze", "event": "answer"},
             "camera": "full_scene",
         }
-        plan["visual_state"] = _visual_state_for_plan(plan)
-        return plan
+        return attach_beat_visual_spec(
+            result=result,
+            step_id=step_id,
+            title=str(step.get("title") or ""),
+            text=text_blob,
+            visual_plan=plan,
+        )
     plan = {
         "type": "scene",
         "visual_action": action,
@@ -1867,8 +1979,13 @@ def _visual_plan_for_beat(step: dict, sub_reveals: list[dict], result: Evaluatio
         "motion": motion,
         "camera": _camera_hint_for_text(text_blob, action),
     }
-    plan["visual_state"] = _visual_state_for_plan(plan)
-    return plan
+    return attach_beat_visual_spec(
+        result=result,
+        step_id=step_id,
+        title=str(step.get("title") or ""),
+        text=text_blob,
+        visual_plan=plan,
+    )
 
 
 def _visual_plan_for_reveal(
@@ -2258,13 +2375,15 @@ def _is_vector_resolution_text(*, step_id: str, title: str, equation: str, focus
         return False
     if equation.strip().lower().startswith(("s =", "s=", "r =", "r=", "t =", "t=", "t_return", "treturn")):
         return False
+    if "constant" in lowered or "no horizontal force" in lowered:
+        return False
     if any(token in lowered for token in ["landing", "range", "flight", "answer", "takeaway", "collision_condition"]):
         return False
     if "resolve" in lowered or "component" in lowered:
         return True
     if any(token in lowered for token in ["normal_axis", "tangent_axis"]):
         return True
-    if re.search(r"\b[uv]_[xy]\b", lowered):
+    if re.search(r"\b[uv]_[xy]\b", lowered) and any(token in lowered for token in ("resolve", "component", "sin", "cos", "theta", "angle")):
         return True
     return False
 

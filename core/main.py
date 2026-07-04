@@ -228,6 +228,13 @@ async def audit_walkthrough_sync_endpoint(req: SolveQuestionRequest):
     ) if result.status == "passed" else None
     audit = audit_walkthrough_sync(walkthrough=walkthrough, animation_scene=animation_scene_spec)
     return {
+        "request": {
+            "question_text_solver": req.question_text_solver,
+            "options": req.options,
+            "givens": req.givens,
+            "requested_quantity": req.requested_quantity,
+            "suggested_engine_case": req.suggested_engine_case,
+        },
         "solver": {
             "status": result.status,
             "reason": result.reason,

@@ -493,7 +493,7 @@ PLAN_BLUEPRINTS: dict[str, dict[str, object]] = {
     },
     "height_launch_multi_quantity": {
         "goal": "Find all requested projectile quantities for a launch from nonzero height.",
-        "unknown": "requested nonzero-height projectile quantities",
+        "unknown": "requested raised-launch projectile quantities",
         "invariant": "Resolve velocity once; impact time comes from the nonzero-height vertical quadratic, then horizontal motion and impact velocity follow.",
         "equations": [
             "u_x = u cos(theta), u_y = u sin(theta)",
@@ -503,6 +503,20 @@ PLAN_BLUEPRINTS: dict[str, dict[str, object]] = {
             "H_max = h + max(u_y,0)^2/(2g)",
         ],
         "takeaway": "Do not reuse same-level formulas when launch height is nonzero; the positive root of the height equation controls the rest.",
+    },
+    "height_launch_horizontal_scenario": {
+        "goal": "Find the requested quantities for a horizontal launch from a height.",
+        "unknown": "requested horizontal-launch quantities",
+        "invariant": "The launch has no initial vertical velocity; horizontal speed stays constant while gravity builds the downward velocity.",
+        "equations": [
+            "u_y = 0, v_x = constant",
+            "h = (1/2)gT^2",
+            "R = v_xT",
+            "v_y = -gT",
+            "|v| = sqrt(v_x^2 + v_y^2)",
+            "phi = tan^-1(|v_y|/v_x)",
+        ],
+        "takeaway": "For horizontal launch from height, solve fall time vertically first, then use constant horizontal velocity and the impact velocity triangle.",
     },
     "air_drag_conceptual_timing": {
         "goal": "Choose the qualitative effect of air drag.",
@@ -650,7 +664,7 @@ PLAN_BLUEPRINTS: dict[str, dict[str, object]] = {
 def _blueprint_plan(result: EvaluationResult, givens: list[str]) -> EquationPlan:
     spec = PLAN_BLUEPRINTS[result.engine_case]
     template = TEMPLATE_BY_ENGINE_CASE.get(result.engine_case)
-    equations = list(spec.get("equations") or [])
+    equations = _blueprint_equations(result, spec)
     steps: list[EquationStep] = []
     trace_items = result.trace or []
     step_count = max(len(equations), len(trace_items), 1)
@@ -690,9 +704,86 @@ def _step_title(index: int, step_count: int) -> str:
     return f"Use relation {index + 1}"
 
 
+def _blueprint_equations(result: EvaluationResult, spec: dict[str, object]) -> list[str]:
+    base = [str(item) for item in (spec.get("equations") or [])]
+    answer = (result.computed_text or "").lower()
+    if result.engine_case == "height_launch_multi_quantity":
+        needs_impact = "impact speed" in answer or "|v|_impact" in answer or "impact angle" in answer
+        needs_time = "t =" in answer or "time =" in answer or "r =" in answer or "range =" in answer or needs_impact
+        equations = ["u_x = u cos(theta), u_y = u sin(theta)"]
+        if needs_time:
+            equations.extend([
+                "0 = h + u_yT - (1/2)gT^2",
+                "T = (u_y + sqrt(u_y^2 + 2gh))/g",
+            ])
+        if "r =" in answer or "range =" in answer:
+            equations.append("R = u_xT")
+        if "h =" in answer or "maximum height" in answer:
+            equations.append("H_max = h + max(u_y,0)^2/(2g)")
+        if "impact speed" in answer or "|v|_impact" in answer:
+            equations.extend(["v_y = u_y - gT", "|v| = sqrt(v_x^2 + v_y^2)"])
+        if "impact angle" in answer:
+            equations.append("phi = tan^-1(|v_y|/v_x)")
+        return equations or base
+    if result.engine_case == "height_launch_horizontal_scenario":
+        needs_impact = "impact speed" in answer or "impact angle" in answer
+        needs_time = "t =" in answer or "time =" in answer or "range =" in answer or "r =" in answer or "height =" in answer or needs_impact
+        equations = ["u_y = 0"]
+        if needs_time:
+            equations.append("h = (1/2)gT^2")
+        equations.append("v_x = constant")
+        if "range =" in answer or "r =" in answer:
+            equations.append("R = v_xT")
+        if "impact speed" in answer or "impact angle" in answer:
+            equations.append("v_y = -gT")
+        if "impact speed" in answer:
+            equations.append("|v| = sqrt(v_x^2 + v_y^2)")
+        if "impact angle" in answer:
+            equations.append("phi = tan^-1(|v_y|/v_x)")
+        return equations or base
+    return base
+
+
 def _blueprint_step_title(engine_case: str, index: int, step_count: int, equation: str) -> str:
     lowered = equation.lower()
     compact = lowered.replace(" ", "")
+    if engine_case == "height_launch_horizontal_scenario":
+        if "u_y = 0" in lowered:
+            return "Separate horizontal and vertical motion"
+        if "v_x = constant" in lowered:
+            return "Keep horizontal velocity constant"
+        if compact.startswith("h=(1/2)g") or compact.startswith("h=0.5g"):
+            return "Find the fall time"
+        if lowered.startswith("r ="):
+            return "Convert fall time into range"
+        if lowered.startswith("v_y"):
+            return "Find the impact vertical velocity"
+        if lowered.startswith("|v|"):
+            return "Combine impact velocity components"
+        if lowered.startswith("phi"):
+            return "Find the impact angle"
+    if engine_case == "height_launch_multi_quantity":
+        if "u_x" in lowered and "u_y" in lowered:
+            return "Resolve the launch velocity"
+        if "0 =" in lowered and "h +" in lowered:
+            return "Apply the ground-impact condition"
+        if "sqrt" in lowered and "2gh" in lowered:
+            return "Choose the positive impact-time root"
+        if lowered.startswith("r ="):
+            return "Convert time into range"
+        if lowered.startswith("v_y"):
+            return "Find the impact vertical velocity"
+        if lowered.startswith("|v|"):
+            return "Combine impact velocity components"
+        if lowered.startswith("phi"):
+            return "Find the impact angle"
+    if engine_case == "level_ground_launch_angle_from_range":
+        if "sin(2theta)" in compact:
+            return "Relate range to sin(2θ)"
+        if "theta" in lowered and "sin^-1" in lowered:
+            return "Find the first launch angle"
+        if "paired angle" in lowered:
+            return "Find the complementary angle"
     if engine_case == "target_launch_angle_fixed_speed":
         if lowered.startswith("y = xt") or "1+t^2" in compact:
             return "Write the target trajectory equation"
@@ -736,6 +827,8 @@ def _blueprint_step_title(engine_case: str, index: int, step_count: int, equatio
         return "Find time to peak"
     if lowered.startswith("y(t)") or lowered.startswith("y ="):
         return "Write vertical position"
+    if "sqrt" in lowered and "2gh" in lowered:
+        return "Choose the positive impact-time root"
     if lowered.startswith("0 = t") or "t(" in lowered:
         return "Factor the landing condition"
     if "2u_y/g" in lowered:
@@ -752,7 +845,7 @@ def _blueprint_step_title(engine_case: str, index: int, step_count: int, equatio
         return "Find displacement along the incline"
     if compact.startswith("s=2u^2") and "cos^2" in compact:
         return "Combine the return time with along-plane motion"
-    if lowered.startswith("t") or " t =" in lowered or "flight time" in lowered:
+    if _starts_with_time_symbol(lowered) or " t =" in lowered or "flight time" in lowered:
         return "Find the flight time"
     if "r =" in lowered and " t" in lowered:
         return "Convert time into range"
@@ -770,6 +863,35 @@ def _blueprint_step_title(engine_case: str, index: int, step_count: int, equatio
 def _blueprint_step_explanation(engine_case: str, index: int, step_count: int, equation: str, substitution: str, spec: dict[str, object]) -> str:
     lowered = equation.lower()
     compact = lowered.replace(" ", "")
+    if engine_case == "height_launch_horizontal_scenario":
+        if "u_y = 0" in lowered:
+            return "The ball leaves horizontally, so the initial vertical component is zero."
+        if "v_x = constant" in lowered:
+            return "No horizontal force acts, so the horizontal velocity remains equal to the launch speed."
+        if compact.startswith("h=(1/2)g") or compact.startswith("h=0.5g"):
+            return "Vertical motion is free fall from height h. Use the tower height to get the impact time."
+        if lowered.startswith("r ="):
+            return "Horizontal acceleration is zero, so range is constant horizontal speed multiplied by the fall time."
+        if lowered.startswith("v_y"):
+            return "Gravity creates the downward impact component during the fall time."
+        if lowered.startswith("|v|"):
+            return "Just before impact, combine the unchanged horizontal component with the downward vertical component."
+        if lowered.startswith("phi"):
+            return "The angle below the horizontal comes from the impact velocity triangle."
+    if engine_case == "height_launch_multi_quantity":
+        if lowered.startswith("v_y"):
+            return "At impact, gravity has reduced the vertical component by gT."
+        if lowered.startswith("|v|"):
+            return "Combine horizontal and vertical impact components with Pythagoras."
+        if lowered.startswith("phi"):
+            return "Use tan(phi)=|v_y|/v_x for the velocity angle below the horizontal."
+    if engine_case == "level_ground_launch_angle_from_range":
+        if "sin(2theta)" in compact:
+            return "For same-height landing, range depends on sin(2θ). Substitute the given range and speed into this relation."
+        if "theta" in lowered and "sin^-1" in lowered:
+            return "Take the inverse sine to get one possible value of 2θ, then halve it to get the first launch angle."
+        if "paired angle" in lowered:
+            return "Because sin(2θ) has a complementary solution, the second launch angle is 90° minus the first."
     if engine_case == "target_launch_angle_fixed_speed":
         if lowered.startswith("y = xt") or "1+t^2" in compact:
             return "Use the trajectory equation at the target point and set T = tan(theta), so the unknown angle becomes an algebraic variable."
@@ -810,9 +932,11 @@ def _blueprint_step_explanation(engine_case: str, index: int, step_count: int, e
     if lowered.startswith("0 = u_y"):
         return "At the highest point, vertical velocity is zero. Set v_y = 0 to find the time."
     if "t_peak" in lowered:
-        return "Solve for t_peak and substitute the vertical component. For a straight-up throw, theta = 90deg."
+        return "Solve for t_peak using the vertical component. This intermediate time helps locate the apex before computing height or range."
     if lowered.startswith("y(t)") or lowered.startswith("y ="):
         return "Measure vertical position from the launch level. The upward term is u_y t and the downward gravitational term is (1/2)gt^2."
+    if "sqrt" in lowered and "2gh" in lowered:
+        return "Solve the nonzero-height quadratic in t and keep the positive root, because negative time is not physically valid."
     if lowered.startswith("0 = t") or "t(" in lowered:
         return "At landing the vertical position is back to zero. Factoring separates the launch instant from the later landing instant."
     if "2u_y/g" in lowered:
@@ -823,15 +947,13 @@ def _blueprint_step_explanation(engine_case: str, index: int, step_count: int, e
         return "At the ground, y = 0 while the launch point is h above ground. Use y = h + u sin(theta)t - (1/2)gt^2 and set it equal to zero."
     if "0 =" in lowered and "gt^2" in lowered:
         return "Launch and landing are on the same horizontal level, so the net vertical displacement is zero. Use the vertical displacement equation at landing."
-    if "sqrt" in lowered and "2gh" in lowered:
-        return "Solve the quadratic in t and keep the positive root, because negative time is not physically valid."
     if compact.startswith("t_return=") or compact.startswith("treturn="):
         return "Use the axis normal to the incline. The projectile starts away from the plane with speed u and comes back because gravity has a normal component g cos(alpha)."
     if compact.startswith("s=(1/2)gsin") or compact.startswith("s=0.5gsin"):
         return "Now use the axis along the incline. There is no initial along-plane velocity, so the along-plane distance is produced only by g sin(alpha)."
     if compact.startswith("s=2u^2") and "cos^2" in compact:
         return "Substitute the normal-return time into the along-plane displacement equation to get the range measured on the incline."
-    if lowered.startswith("t") or " t =" in lowered or "flight time" in lowered:
+    if _starts_with_time_symbol(lowered) or " t =" in lowered or "flight time" in lowered:
         return "Factor the previous equation: T(u_y - gT/2)=0. The nonzero root gives the total flight time."
     if "r =" in lowered and " t" in lowered:
         return "Horizontal acceleration is zero, so horizontal range equals constant horizontal velocity multiplied by flight time."
@@ -847,6 +969,8 @@ def _blueprint_step_explanation(engine_case: str, index: int, step_count: int, e
 def _blueprint_focus_ids(engine_case: str, index: int, step_count: int, equation: str) -> list[str]:
     lowered = equation.lower()
     case = engine_case.lower()
+    if case in {"height_launch_time_of_flight", "height_launch_range", "height_launch_multi_quantity", "height_launch_horizontal_scenario"}:
+        return _height_launch_focus_ids(case, lowered)
     if case == "monkey_hunter_condition":
         if index == step_count - 1:
             return ["actor:hunter", "actor:monkey", "point:hit", "event:hit", "answer"]
@@ -881,13 +1005,15 @@ def _blueprint_focus_ids(engine_case: str, index: int, step_count: int, equation
         return ["point:target", "trajectory:path"]
     if engine_case in incline_range_cases and any(token in lowered for token in ("s =", "r =", "range", "distance")):
         return ["quantity:R", "point:impact", "surface:inclined_plane", "trajectory:path"]
+    if case == "level_ground_launch_angle_from_range":
+        return ["quantity:R", "quantity:theta", "trajectory:path", "answer"]
     if "incline" in lowered or "plane" in lowered or "incline" in case:
         return ["surface:inclined_plane", "incline:tangent_axis", "incline:normal_axis", "trajectory:path"]
     if "u_x" in lowered and "u_y" in lowered:
         return ["vector:u", "vector:vx", "vector:vy", "quantity:ux", "quantity:uy"]
     if "0 =" in lowered and "gt^2" in lowered:
         return ["point:launch", "point:landing", "quantity:delta_y", "trajectory:path"]
-    if lowered.startswith("t") or " t =" in lowered:
+    if _starts_with_time_symbol(lowered) or " t =" in lowered:
         return ["quantity:T", "point:launch", "point:landing", "event:apex", "trajectory:path"]
     if "r =" in lowered or any(token in lowered for token in ("range", " r", "distance")):
         return ["quantity:R", "point:landing", "trajectory:path"]
@@ -904,8 +1030,37 @@ def _blueprint_focus_ids(engine_case: str, index: int, step_count: int, equation
     return ["vector:u", "quantity:u", "quantity:theta", "trajectory:path"]
 
 
+def _height_launch_focus_ids(case: str, lowered_equation: str) -> list[str]:
+    if "u_x" in lowered_equation and "u_y" in lowered_equation:
+        return ["point:launch", "vector:u", "vector:vx", "vector:vy", "quantity:ux", "quantity:uy"]
+    if "u_y = 0" in lowered_equation or "v_x = constant" in lowered_equation or "horizontal launch speed" in lowered_equation:
+        return ["point:launch", "vector:vx", "quantity:ux", "trajectory:path"]
+    if "0 =" in lowered_equation and "h +" in lowered_equation:
+        return ["point:launch", "point:impact", "event:impact", "quantity:launch_height", "trajectory:path"]
+    if "sqrt" in lowered_equation and ("2gh" in lowered_equation or "u_y^2" in lowered_equation):
+        return ["quantity:T", "point:impact", "event:impact", "quantity:launch_height", "trajectory:path"]
+    if lowered_equation.startswith("h =") and "gt^2" in lowered_equation:
+        return ["quantity:T", "quantity:launch_height", "point:impact", "event:impact", "trajectory:path"]
+    if lowered_equation.startswith("r =") or "range" in lowered_equation:
+        return ["quantity:R", "point:impact", "event:impact", "trajectory:path"]
+    if lowered_equation.startswith("v_y"):
+        return ["vector:vy", "quantity:vy", "point:impact", "event:impact", "quantity:T"]
+    if lowered_equation.startswith("|v|") or "sqrt(v_x" in lowered_equation:
+        return ["vector:v", "vector:vx", "vector:vy", "point:impact", "event:impact", "answer"]
+    if lowered_equation.startswith("phi") or "tan^-1" in lowered_equation:
+        return ["quantity:impact_angle", "vector:v", "vector:vx", "vector:vy", "point:impact", "event:impact"]
+    if "h_max" in lowered_equation:
+        return ["event:apex", "quantity:H", "trajectory:path"]
+    return ["point:launch", "point:impact", "event:impact", "trajectory:path"]
+
+
 def _is_indexed_face_time_equation(lowered_equation: str) -> bool:
     return "x_n" in lowered_equation and "n w" in lowered_equation and "t_n" in lowered_equation
+
+
+def _starts_with_time_symbol(lowered_equation: str) -> bool:
+    compact = lowered_equation.strip()
+    return bool(re.match(r"^t(?:\\b|_|\\s|=)", compact))
 
 
 def _is_indexed_drop_equation(lowered_equation: str) -> bool:

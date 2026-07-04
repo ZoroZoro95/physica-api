@@ -335,6 +335,8 @@ def _priority_text_case(text: str) -> str | None:
         return "relative_projectile_apex_collision"
     if _is_piecewise_acceleration_range_context(text):
         return "piecewise_acceleration_at_apex_range"
+    if _is_height_launch_context(text) and _requested_level_ground_output_count(text) >= 2:
+        return "height_launch_horizontal_scenario" if _is_horizontal_launch(text) else "height_launch_multi_quantity"
     if _asks_time_to_peak(text):
         return "level_ground_time_to_peak"
     if _asks_height_launch_time(text):
@@ -409,7 +411,20 @@ def _is_height_scaling_context(text: str) -> bool:
 
 
 def _asks_time_to_peak(text: str) -> bool:
-    return any(marker in text for marker in ("maximum height", "highest point", "top", "peak")) and any(
+    peak_markers = (
+        "maximum height",
+        "max height",
+        "highest point",
+        "highest height",
+        "topmost point",
+        "top of its path",
+        "top of the path",
+        "top of trajectory",
+        "top of the trajectory",
+        "peak",
+        "apex",
+    )
+    return any(marker in text for marker in peak_markers) and any(
         marker in text for marker in ("time to", "time taken", "how long", "when")
     )
 
@@ -478,9 +493,34 @@ def _requested_level_ground_output_count(text: str) -> int:
         outputs.append("launch_angle")
     if any(marker in text for marker in ("range", "horizontal distance", "ground distance", "distance covered on ground", "distance on ground", "distance from", "how far")):
         outputs.append("range")
-    if any(marker in text for marker in ("time of flight", "flight time", "total time", "time in air", "airtime", "stays in the air", "stays in air")):
+    if any(marker in text for marker in (
+        "time of flight",
+        "flight time",
+        "total time",
+        "time in air",
+        "airtime",
+        "stays in the air",
+        "stays in air",
+        "time taken",
+        "reach the ground",
+        "to reach the ground",
+        "hits the ground",
+        "hit the ground",
+    )):
         outputs.append("time_of_flight")
-    peak_time = any(marker in text for marker in ("maximum height", "highest point", "top", "peak")) and any(
+    peak_time = any(marker in text for marker in (
+        "maximum height",
+        "max height",
+        "highest point",
+        "highest height",
+        "topmost point",
+        "top of its path",
+        "top of the path",
+        "top of trajectory",
+        "top of the trajectory",
+        "peak",
+        "apex",
+    )) and any(
         marker in text for marker in ("time to", "time taken", "how long", "when")
     )
     if peak_time:
