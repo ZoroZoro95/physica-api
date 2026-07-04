@@ -3,6 +3,8 @@ from __future__ import annotations
 import math
 from typing import Any
 
+from .visual_contract import validate_beat_visual_spec
+
 
 def validate_animation_scene_spec(scene: dict[str, Any]) -> list[str]:
     """Return scene-contract errors. Empty list means the scene is internally coherent."""
@@ -109,6 +111,21 @@ def validate_animation_scene_spec(scene: dict[str, Any]) -> list[str]:
             errors.append(f"storyboard step {step_id or '?'} needs overlays")
         if not str(step.get("why") or "").strip():
             errors.append(f"storyboard step {step_id or '?'} needs why")
+        beat_visual_spec = step.get("beat_visual_spec")
+        if not isinstance(beat_visual_spec, dict):
+            errors.append(f"storyboard step {step_id or '?'} needs beat_visual_spec")
+        else:
+            text = " ".join(
+                str(item or "")
+                for item in (
+                    step.get("why"),
+                    step.get("equation"),
+                    step.get("substitution"),
+                    json_safe_text(step.get("labels") or []),
+                )
+            )
+            for error in validate_beat_visual_spec(beat_visual_spec, text=text):
+                errors.append(f"storyboard step {step_id or '?'} {error}")
 
     return errors
 
@@ -135,3 +152,11 @@ def _is_positive(value: Any) -> bool:
 
 def _is_pair(value: Any) -> bool:
     return isinstance(value, list) and len(value) == 2 and _is_number(value[0]) and _is_number(value[1])
+
+
+def json_safe_text(value: Any) -> str:
+    if isinstance(value, list):
+        return " ".join(json_safe_text(item) for item in value)
+    if isinstance(value, dict):
+        return " ".join(json_safe_text(item) for item in value.values())
+    return str(value or "")

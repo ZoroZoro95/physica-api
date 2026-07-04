@@ -470,7 +470,19 @@ def _is_height_launch_context(text: str) -> bool:
 
 
 def _asks_time_to_peak(text: str) -> bool:
-    peak_markers = ["maximum height", "highest point", "top", "peak"]
+    peak_markers = [
+        "maximum height",
+        "max height",
+        "highest point",
+        "highest height",
+        "topmost point",
+        "top of its path",
+        "top of the path",
+        "top of trajectory",
+        "top of the trajectory",
+        "peak",
+        "apex",
+    ]
     time_markers = ["time to", "time taken", "how long", "when"]
     return any(marker in text for marker in peak_markers) and any(marker in text for marker in time_markers)
 
@@ -491,7 +503,20 @@ def _requested_level_ground_outputs(text: str) -> list[str]:
         outputs.append("launch_angle")
     if any(marker in text for marker in ("range", "horizontal distance", "ground distance", "distance covered on ground", "distance on ground", "distance from", "how far")):
         outputs.append("range")
-    if any(marker in text for marker in ("time of flight", "flight time", "total time", "time in air", "airtime", "stays in the air", "stays in air")):
+    if any(marker in text for marker in (
+        "time of flight",
+        "flight time",
+        "total time",
+        "time in air",
+        "airtime",
+        "stays in the air",
+        "stays in air",
+        "time taken",
+        "reach the ground",
+        "to reach the ground",
+        "hits the ground",
+        "hit the ground",
+    )):
         outputs.append("time_of_flight")
     if _asks_time_to_peak(text):
         outputs.append("time_to_peak")

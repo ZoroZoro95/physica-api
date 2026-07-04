@@ -1718,9 +1718,32 @@ def _requested_level_ground_outputs(question_text: str) -> list[str]:
         outputs.append("launch_angle")
     if any(marker in text for marker in ("range", "horizontal distance", "distance from", "how far")):
         outputs.append("range")
-    if any(marker in text for marker in ("time of flight", "flight time", "total time", "stays in the air", "stays in air")):
+    if any(marker in text for marker in (
+        "time of flight",
+        "flight time",
+        "total time",
+        "stays in the air",
+        "stays in air",
+        "time taken",
+        "reach the ground",
+        "to reach the ground",
+        "hits the ground",
+        "hit the ground",
+    )):
         outputs.append("time_of_flight")
-    peak_time = any(marker in text for marker in ("maximum height", "highest point", "top", "peak")) and any(
+    peak_time = any(marker in text for marker in (
+        "maximum height",
+        "max height",
+        "highest point",
+        "highest height",
+        "topmost point",
+        "top of its path",
+        "top of the path",
+        "top of trajectory",
+        "top of the trajectory",
+        "peak",
+        "apex",
+    )) and any(
         marker in text for marker in ("time to", "time taken", "how long", "when")
     )
     if peak_time:

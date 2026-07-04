@@ -406,6 +406,17 @@ CASES = [
         tolerance=1e-5,
     ),
     Case(
+        name="height launch from building asks ground time and base distance",
+        question=(
+            "A ball is thrown from the top of a 60 m building with speed 20 m/s at 30 degrees above the horizontal. "
+            "Find the time taken to reach the ground and the horizontal distance from the base of the building."
+        ),
+        options=[],
+        expected_engine_case="height_launch_multi_quantity",
+        expected_text_contains=["T = 4.60555 s", "R = 79.7705 m"],
+        expected_trace_contains=["positive root gives T", "Horizontal motion gives R"],
+    ),
+    Case(
         name="minimum speed to target point",
         question=(
             "Find the minimum velocity with which a projectile should be fired to hit "

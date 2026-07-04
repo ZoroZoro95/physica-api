@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import math
+import json
 import re
 from typing import Any
 
@@ -8,6 +9,13 @@ from .mapper import map_projectile_problem
 from .models import EvaluationResult
 from .scene_contract import validate_animation_scene_spec
 from .walkthrough import build_solution_walkthrough
+from .visual_contract import (
+    build_beat_visual_spec,
+    contract_visible_ids,
+    contract_visible_vectors,
+    contract_visual_action,
+    merge_contract_labels,
+)
 
 
 def build_animation_scene_spec(
@@ -250,6 +258,8 @@ def build_animation_scene_spec(
             "t_peak": {"value": t_peak, "unit": "s", "label": "t_peak"},
             "R": {"value": display_range, "unit": "m", "label": "R"},
             "H": {"value": display_height, "unit": "m", "label": "H"},
+            "launch_height": {"value": launch_height, "unit": "m", "label": "h"},
+            "h": {"value": launch_height, "unit": "m", "label": "h"},
             **({"formula_T": {"value": display_time, "unit": "s", "label": "T = 2u sin(theta)/g"}} if representative_scene else {}),
         },
         "events": [
@@ -683,6 +693,8 @@ def _representative_projectile_scene(
             "T": {"value": duration, "unit": "s", "label": "T"},
             "R": {"value": landing_x, "unit": "m", "label": "R"},
             "H": {"value": max_height, "unit": "m", "label": "H"},
+            "launch_height": {"value": launch_height, "unit": "m", "label": "h"},
+            "h": {"value": launch_height, "unit": "m", "label": "h"},
         },
         "events": [
             {"id": "event:launch", "time": 0.0, "point": "launch", "label": "launch"},
@@ -1951,12 +1963,43 @@ def _storyboard_for_scene(scene: dict[str, Any], *, result: EvaluationResult) ->
         if camera not in camera_ids:
             camera = "full_scene"
         visible_vectors = _vectors_for_visual_plan(visual_plan) or _visible_vectors_for_step(step_id, step, scene)
+        contract_text = " ".join(
+            str(item or "")
+            for item in (
+                step_id,
+                step.get("title"),
+                step.get("equation"),
+                step.get("substitution"),
+                plan_step.get("title"),
+                plan_step.get("explanation"),
+                plan_step.get("equation"),
+                plan_step.get("substitution"),
+            )
+        )
+        beat_visual_spec = (visual_plan or {}).get("beat_visual_spec") if isinstance(visual_plan, dict) else None
+        if not isinstance(beat_visual_spec, dict) or not beat_visual_spec:
+            beat_visual_spec = build_beat_visual_spec(
+                result=result,
+                step_id=step_id,
+                title=str(step.get("title") or plan_step.get("title") or ""),
+                text=contract_text,
+                visual_plan=visual_plan or {},
+            )
+        visual_action = contract_visual_action(visual_action, beat_visual_spec)
+        contract_camera = str((beat_visual_spec.get("renderer_hints") or {}).get("camera") or "")
+        if contract_camera:
+            camera = contract_camera
+        if camera not in camera_ids:
+            camera = "full_scene"
+        visible_vectors = contract_visible_vectors(visible_vectors, beat_visual_spec)
         overlays = _overlays_for_visual_plan(visual_plan) or step.get("overlays") or _overlays_for_step(step_id, step.get("focus_ids") or [], visual_action)
-        visual_focus = _show_ids_for_visual_plan(visual_plan) or step.get("focus_ids") or []
-        highlight_ids = _highlight_ids_for_visual_plan(visual_plan) or step.get("highlight_ids") or step.get("focus_ids") or []
+        visual_focus = contract_visible_ids(_show_ids_for_visual_plan(visual_plan) or step.get("focus_ids") or [], beat_visual_spec)
+        highlight_ids = contract_visible_ids(_highlight_ids_for_visual_plan(visual_plan) or step.get("highlight_ids") or step.get("focus_ids") or [], beat_visual_spec)
+        labels = merge_contract_labels((visual_plan or {}).get("labels") or [], beat_visual_spec.get("labels") or [])
         used_visual_plans.add(step_id)
         storyboard.append({
             "step_id": step_id,
+            "beat_visual_spec": beat_visual_spec,
             "visual_action": visual_action,
             "camera": camera,
             "visible_vectors": visible_vectors,
@@ -1964,7 +2007,7 @@ def _storyboard_for_scene(scene: dict[str, Any], *, result: EvaluationResult) ->
             "visual_focus": visual_focus,
             "highlight_ids": highlight_ids,
             "camera_target_ids": step.get("camera_target_ids") or (visual_plan or {}).get("show_ids") or [],
-            "labels": (visual_plan or {}).get("labels") or [],
+            "labels": labels,
             "motion": (visual_plan or {}).get("motion") or {},
             "visual_state": _visual_state_for_visual_plan(visual_plan, visible_vectors, visual_focus, highlight_ids),
             "visual_plan": visual_plan or {},
@@ -1977,22 +2020,35 @@ def _storyboard_for_scene(scene: dict[str, Any], *, result: EvaluationResult) ->
         if step_id in used_visual_plans:
             continue
         visual_action = str(visual_plan.get("visual_action") or "highlight_final_answer")
+        beat_visual_spec = visual_plan.get("beat_visual_spec") if isinstance(visual_plan.get("beat_visual_spec"), dict) else build_beat_visual_spec(
+            result=result,
+            step_id=step_id,
+            title="",
+            text=json.dumps(visual_plan, ensure_ascii=False),
+            visual_plan=visual_plan,
+        )
+        visual_action = contract_visual_action(visual_action, beat_visual_spec)
+        visible_vectors = contract_visible_vectors(_vectors_for_visual_plan(visual_plan) or ["__none__"], beat_visual_spec)
+        visual_focus = contract_visible_ids(_show_ids_for_visual_plan(visual_plan) or ["answer"], beat_visual_spec)
+        highlight_ids = contract_visible_ids(_highlight_ids_for_visual_plan(visual_plan) or ["answer"], beat_visual_spec)
+        labels = merge_contract_labels(visual_plan.get("labels") or [], beat_visual_spec.get("labels") or [])
         storyboard.append({
             "step_id": step_id,
+            "beat_visual_spec": beat_visual_spec,
             "visual_action": visual_action,
             "camera": "full_scene",
-            "visible_vectors": _vectors_for_visual_plan(visual_plan) or ["__none__"],
+            "visible_vectors": visible_vectors,
             "overlays": _overlays_for_visual_plan(visual_plan) or ["show_final_answer"],
-            "visual_focus": _show_ids_for_visual_plan(visual_plan) or ["answer"],
-            "highlight_ids": _highlight_ids_for_visual_plan(visual_plan) or ["answer"],
+            "visual_focus": visual_focus,
+            "highlight_ids": highlight_ids,
             "camera_target_ids": visual_plan.get("show_ids") or ["answer"],
-            "labels": visual_plan.get("labels") or [],
+            "labels": labels,
             "motion": visual_plan.get("motion") or {},
             "visual_state": _visual_state_for_visual_plan(
                 visual_plan,
-                _vectors_for_visual_plan(visual_plan) or ["__none__"],
-                _show_ids_for_visual_plan(visual_plan) or ["answer"],
-                _highlight_ids_for_visual_plan(visual_plan) or ["answer"],
+                visible_vectors,
+                visual_focus,
+                highlight_ids,
             ),
             "visual_plan": visual_plan,
             "why": "Close the walkthrough with the final result.",
@@ -2001,8 +2057,16 @@ def _storyboard_for_scene(scene: dict[str, Any], *, result: EvaluationResult) ->
             "substitution": "",
         })
     if not storyboard:
+        beat_visual_spec = build_beat_visual_spec(
+            result=result,
+            step_id="full",
+            title="Full motion",
+            text="Show the full solved projectile motion.",
+            visual_plan={"visual_action": "show_full_scene"},
+        )
         storyboard.append({
             "step_id": "full",
+            "beat_visual_spec": beat_visual_spec,
             "visual_action": "show_full_scene",
             "camera": "full_scene",
             "visible_vectors": ["__none__"],
@@ -2033,6 +2097,11 @@ def _semantic_visual_action_override(
         focus = " ".join(str(item).lower() for item in step.get("focus_ids") or [])
         if step_id.endswith("4") or "point:hit" in focus or "event:hit" in focus:
             return "highlight_collision"
+    if result.engine_case.startswith("height_launch"):
+        focus = " ".join(str(item).lower() for item in step.get("focus_ids") or [])
+        if "event:impact" in focus or "quantity:launch_height" in focus:
+            if visual_action == "highlight_same_height":
+                return "highlight_vertical_motion"
     return visual_action
 
 
@@ -2180,7 +2249,9 @@ def _highlight_ids_for_visual_plan(visual_plan: dict[str, Any] | None) -> list[s
 
 
 def _camera_for_visual_plan(visual_plan: dict[str, Any] | None, step_id: str, step: dict[str, Any]) -> str:
-    return "full_scene"
+    if isinstance(visual_plan, dict) and visual_plan.get("camera"):
+        return str(visual_plan.get("camera"))
+    return _camera_for_step(step_id, step)
 
 
 def _camera_for_step(step_id: str, step: dict[str, Any]) -> str:
@@ -2424,10 +2495,12 @@ def _scene_visual_action(step_id: str, title: str, equation: str, focus_ids: lis
         return "highlight_collision"
     if "event:collision" in lowered or "point:collision" in lowered:
         return "highlight_collision"
-    if "same height" in lowered or "delta y" in lowered or "delta_y" in lowered:
-        return "highlight_same_height"
     if "range" in lowered or "quantity:r" in lowered or "distance" in lowered:
         return "highlight_range"
+    if "event:impact" in lowered or "ground-impact" in lowered or "quantity:launch_height" in lowered:
+        return "highlight_vertical_motion"
+    if "same height" in lowered or "delta y" in lowered or "delta_y" in lowered:
+        return "highlight_same_height"
     if "sqrt(2h" in lowered or "quantity:h" in lowered or " h/" in lowered or " h)" in lowered:
         return "highlight_apex"
     if "time" in lowered or "quantity:t" in lowered:

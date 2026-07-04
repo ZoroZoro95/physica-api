@@ -141,6 +141,13 @@ def _run_entry(entry: dict[str, Any], *, index: int, out_dir: Path) -> dict[str,
     (case_dir / "audit.json").write_text(json.dumps(audit, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     (case_dir / "render_payload.json").write_text(
         json.dumps({
+            "request": {
+                "question_text_solver": question_text,
+                "options": list(entry.get("options") or []),
+                "givens": list(entry.get("givens") or []),
+                "requested_quantity": entry.get("requested_quantity"),
+                "suggested_engine_case": entry.get("suggested_engine_case"),
+            },
             "solver": {
                 "status": result.status,
                 "reason": result.reason,
