@@ -1090,7 +1090,7 @@ def solve_height_launch_multi_quantity(entry: ManifestEntry) -> EvaluationResult
 
 
 def solve_height_launch_horizontal_scenario(entry: ManifestEntry) -> EvaluationResult:
-    v0 = _optional_number_from_any_known(entry, ["v0", "velocity", "speed", "vx", "horizontal_velocity"])
+    v0 = _optional_number_from_any_known(entry, ["vx", "ux", "v_x", "u_x", "horizontal_velocity", "v0", "velocity", "speed"])
     height = _optional_number_from_any_known(entry, ["height", "launch_height", "initial_height", "h"])
     time = _optional_number_from_any_known(entry, ["time", "t", "flight_time", "time_of_flight"])
     range_value = _optional_number_from_any_known(entry, ["range", "horizontal_range", "distance"])
@@ -1118,7 +1118,8 @@ def solve_height_launch_horizontal_scenario(entry: ManifestEntry) -> EvaluationR
         ]
         raise ValueError(f"{entry.label}: insufficient horizontal-launch data; missing {', '.join(missing)}")
     impact_vy = -g * time
-    impact_speed = math.hypot(v0, impact_vy)
+    horizontal_speed = abs(v0)
+    impact_speed = math.hypot(horizontal_speed, impact_vy)
     impact_angle = math.degrees(math.atan2(abs(impact_vy), abs(v0))) if not math.isclose(v0, 0.0, abs_tol=1e-12) else 90.0
     outputs = _requested_height_launch_outputs(entry.question_text)
     if not outputs:
@@ -1132,10 +1133,14 @@ def solve_height_launch_horizontal_scenario(entry: ManifestEntry) -> EvaluationR
         output_text.append(f"height = {height:g} m")
     if "components" in outputs or "horizontal_speed" in outputs:
         output_text.append(f"v_x = {v0:g} m/s")
+    if "impact_velocity" in outputs:
+        y_sign = "-" if impact_vy < 0 else "+"
+        output_text.append(f"impact velocity = {v0:g}i {y_sign} {abs(impact_vy):g}j m/s")
     if "impact_speed" in outputs:
         output_text.append(f"impact speed = {impact_speed:g} m/s")
     if "impact_angle" in outputs:
-        output_text.append(f"impact angle = {impact_angle:g} deg below horizontal")
+        direction_text = "leftward horizontal" if v0 < 0 else "horizontal"
+        output_text.append(f"impact angle = {impact_angle:g} deg below {direction_text}")
     trace = [
         "Horizontal launch has u_y = 0, so vertical motion and horizontal motion separate cleanly.",
         f"Vertical motion gives h = 1/2 g t^2, so h = {height:g} m and t = {time:g} s.",
@@ -1143,13 +1148,16 @@ def solve_height_launch_horizontal_scenario(entry: ManifestEntry) -> EvaluationR
     ]
     if "range" in outputs:
         trace.append(f"Horizontal motion gives R = v_x t = {v0:g} * {time:g} = {range_value:g} m.")
-    if "impact_speed" in outputs or "impact_angle" in outputs:
+    if "impact_velocity" in outputs or "impact_speed" in outputs or "impact_angle" in outputs:
         trace.append(f"Impact vertical velocity is v_y = -gt = {impact_vy:g} m/s.")
+    if "impact_velocity" in outputs:
+        y_sign = "-" if impact_vy < 0 else "+"
+        trace.append(f"Therefore the impact velocity vector is v = {v0:g}i {y_sign} {abs(impact_vy):g}j m/s.")
     if "impact_speed" in outputs:
-        trace.append(f"Impact speed is |v| = sqrt(v_x^2 + v_y^2) = sqrt({v0:g}^2 + {abs(impact_vy):g}^2) = {impact_speed:g} m/s.")
+        trace.append(f"Impact speed is |v| = sqrt(v_x^2 + v_y^2) = sqrt({horizontal_speed:g}^2 + {abs(impact_vy):g}^2) = {impact_speed:g} m/s.")
     if "impact_angle" in outputs:
         trace.append(
-            f"The velocity angle below horizontal is phi = tan^-1(|v_y|/v_x) = "
+            f"The velocity angle below horizontal is phi = tan^-1(|v_y|/|v_x|) = "
             f"tan^-1({abs(impact_vy):g}/{abs(v0):g}) = {impact_angle:g} deg."
         )
     return _symbolic_result(
@@ -1759,21 +1767,100 @@ def _requested_level_ground_outputs(question_text: str) -> list[str]:
 def _requested_height_launch_outputs(question_text: str) -> list[str]:
     text = question_text.lower()
     outputs: list[str] = []
+    asks_impact_vector = _asks_height_launch_impact_vector(text)
     if any(marker in text for marker in ("time of flight", "flight time", "total time", "how long", "remains in air", "time taken", "time to hit", "time before", "time after", "stays in the air", "stays in air")):
         outputs.append("time_of_flight")
     if any(marker in text for marker in ("range", "horizontal distance", "distance covered", "how far", "lands", "where", "from the base", "from the building", "from the cliff")):
         outputs.append("range")
     if any(marker in text for marker in ("maximum height", "max height", "highest point")):
         outputs.append("maximum_height")
-    if any(marker in text for marker in ("impact speed", "speed just before", "speed before impact", "speed before hitting", "velocity just before", "impact velocity")):
+    if asks_impact_vector:
+        outputs.append("impact_velocity")
+    if _asks_height_launch_impact_speed(text):
         outputs.append("impact_speed")
-    if any(marker in text for marker in ("angle made by the velocity", "angle with the horizontal", "impact angle")):
+    if asks_impact_vector or _asks_height_launch_impact_angle(text):
         outputs.append("impact_angle")
     if any(marker in text for marker in ("horizontal speed", "initial horizontal speed", "horizontal velocity", "initial speed", "with which it left")):
         outputs.append("horizontal_speed")
     if re.search(r"\bheight\s+(?:of\s+the\s+)?(?:tower|cliff|building|platform|table|h)\b", text) or re.search(r"\bfind\s+h\b", text):
         outputs.append("height")
     return list(dict.fromkeys(outputs))
+
+
+def _asks_height_launch_impact_velocity(text: str) -> bool:
+    return _asks_height_launch_impact_vector(text) or _asks_height_launch_impact_speed(text) or _asks_height_launch_impact_angle(text)
+
+
+def _asks_height_launch_impact_vector(text: str) -> bool:
+    return any(marker in text for marker in (
+        "impact velocity",
+        "velocity vector",
+        "final velocity",
+        "velocity just before",
+        "velocity before impact",
+        "velocity before hitting",
+        "velocity when it reaches",
+        "velocity when it reaches the ground",
+        "velocity when it hits",
+        "velocity when it hits the ground",
+        "velocity at impact",
+    ))
+
+
+def _asks_height_launch_impact_speed(text: str) -> bool:
+    return any(marker in text for marker in (
+        "impact speed",
+        "speed at ground impact",
+        "speed and direction",
+        "speed just before",
+        "speed before impact",
+        "speed before hitting",
+        "speed with which it hits",
+        "speed with which it hit",
+        "final speed",
+        "magnitude of the velocity",
+        "magnitude and direction",
+        "resultant velocity",
+        "velocity vector",
+        "impact velocity",
+        "velocity at impact",
+        "velocity just before",
+        "velocity when it reaches",
+        "velocity when it reaches the ground",
+        "velocity when it hits",
+        "velocity when it hits the ground",
+        "just before impact",
+        "just before striking",
+        "just before hitting",
+        "just before it lands",
+        "just before reaching the ground",
+        "ground impact",
+    ))
+
+
+def _asks_height_launch_impact_angle(text: str) -> bool:
+    return any(marker in text for marker in (
+        "impact angle",
+        "angle made by the velocity",
+        "angle with the horizontal",
+        "angle its velocity makes",
+        "angle the velocity makes",
+        "angle below the horizontal",
+        "angle of descent",
+        "speed and direction",
+        "direction of its velocity",
+        "direction of the velocity",
+        "magnitude and direction",
+        "direction just before",
+        "direction at impact",
+        "velocity when it reaches",
+        "velocity when it reaches the ground",
+        "velocity when it hits",
+        "velocity when it hits the ground",
+        "just before it lands",
+        "velocity vector",
+        "impact velocity",
+    ))
 
 
 def _compact_time_text(text: str) -> str:

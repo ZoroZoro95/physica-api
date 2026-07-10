@@ -88,7 +88,7 @@ def audit_walkthrough_sync(
             if not any(token in live_vector_labels for token in ("gsin", "g sin", "gcos", "g cos")):
                 beat_findings.append(f"{title}: resolved gravity component is not labeled in live_vectors.")
         if mentions_axis_resolution(beat_text):
-            if not any("axis" in item for item in visible_vectors):
+            if not any("axis" in item for item in visible_vectors) and not exposes_component_vectors(visible_vectors):
                 beat_findings.append(f"{title}: talks about axes/components, but visible_vectors has no axis vector.")
         if has_formula_without_substitution(beat):
             beat_findings.append(f"{title}: formula appears without a clear substitution/calculation reveal.")
@@ -166,9 +166,23 @@ def mentions_axis_resolution(text: str) -> bool:
 
 
 def is_static_teaching_beat(text: str, visual_action: str) -> bool:
-    if visual_action in {"show_full_scene", "show_motion_progress", "show_normal_return", "highlight_collision"}:
+    dynamic_actions = {
+        "show_full_scene",
+        "show_motion_progress",
+        "show_normal_return",
+        "highlight_collision",
+        "show_impact_vertical_velocity",
+        "show_impact_velocity_triangle",
+        "show_impact_angle",
+    }
+    if visual_action in dynamic_actions:
         return False
     return any(token in text for token in ("given", "read the diagram", "axis", "component", "condition", "equation", "substitute"))
+
+
+def exposes_component_vectors(visible_vectors: set[str]) -> bool:
+    component_suffixes = (":vx", ":vy", ":v", ":ux", ":uy", ":a")
+    return any(str(item).endswith(component_suffixes) for item in visible_vectors)
 
 
 def has_formula_without_substitution(beat: dict[str, Any]) -> bool:

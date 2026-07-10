@@ -643,15 +643,160 @@ def _diagram_model(result: EvaluationResult) -> dict:
 def _build_explainer_beats(result: EvaluationResult, steps: list[dict]) -> list[dict]:
     conceptual = _conceptual_explainer_beats(result)
     if conceptual:
-        return conceptual
+        return [_attach_conceptual_beat_visual_spec(result, beat) for beat in conceptual]
     compact_steps = _compact_explainer_steps(result, steps)
     return [_generic_explainer_beat(result, step, index) for index, step in enumerate(compact_steps)]
 
 
 def _conceptual_explainer_beats(result: EvaluationResult) -> list[dict]:
+    if result.engine_case == "height_launch_horizontal_scenario":
+        return _horizontal_launch_scenario_conceptual_beats(result)
     if result.engine_case == "projectile_collides_with_sliding_particle_on_incline":
         return _incline_collision_conceptual_beats(result)
     return []
+
+
+def _horizontal_launch_scenario_conceptual_beats(result: EvaluationResult) -> list[dict]:
+    plan = result.equation_plan or {}
+    givens = _givens_map(plan.get("givens") or [])
+    speed = givens.get("vx") or givens.get("v0") or givens.get("u") or "u"
+    height = givens.get("height") or givens.get("h") or "h"
+    time_line = _strip_terminal_period(
+        _trace_line_containing(result, "Vertical motion gives")
+        or f"h = 1/2 gT^2, so T comes from h = {height}"
+    )
+    vy_line = _strip_terminal_period(
+        _trace_line_containing(result, "Impact vertical velocity")
+        or "v_y = -gT"
+    )
+    speed_line = _strip_terminal_period(
+        _trace_line_containing(result, "Impact speed")
+        or "|v| = sqrt(v_x^2 + v_y^2)"
+    )
+    angle_line = _strip_terminal_period(
+        _trace_line_containing(result, "velocity angle")
+        or "theta = tan^-1(|v_y|/v_x)"
+    )
+    return [
+        _conceptual_beat(
+            step_id="horizontal_launch_setup",
+            title="Recognize this as a horizontal launch",
+            learner_message=(
+                f"The ball leaves the tower horizontally with speed {speed}. The useful picture is a tower height, "
+                "a horizontal launch velocity, and gravity downward."
+            ),
+            sub_reveals=[
+                _sub_reveal(
+                    "givens",
+                    "Mark the launch speed, tower height, and gravity direction.",
+                    "Show the tower, horizontal velocity, height marker, and downward gravity.",
+                    [f"u = {speed}", f"h = {height}"],
+                    ["point:launch", "quantity:launch_height", "velocity:x_component", "vector:g"],
+                    ["velocity:x_component", "quantity:launch_height", "vector:g"],
+                ),
+            ],
+            visual_action="show_launch_setup",
+            visual_focus=["point:launch", "quantity:launch_height", "velocity:x_component", "vector:g"],
+            visible_vectors=["*:vx", "*:a"],
+            overlays=["show_height_marker"],
+            motion={"mode": "static"},
+            why_it_matters="Horizontal launch means the vertical fall starts from rest vertically, while horizontal velocity is already known.",
+            visual_director_beat="setup",
+            hide_live_values=True,
+        ),
+        _conceptual_beat(
+            step_id="horizontal_launch_time",
+            title="Use vertical motion to find time of fall",
+            learner_message="The fall time is decided by the vertical drop, not by the horizontal speed.",
+            sub_reveals=[
+                _sub_reveal(
+                    "vertical_relation",
+                    "Use the tower height as the vertical displacement.",
+                    "Highlight the drop height and gravity.",
+                    ["h = 1/2 gT^2", time_line],
+                    ["quantity:launch_height", "vector:g", "quantity:T"],
+                    ["quantity:launch_height", "vector:g"],
+                ),
+            ],
+            visual_action="highlight_vertical_motion",
+            visual_focus=["quantity:launch_height", "vector:g", "quantity:T"],
+            visible_vectors=["*:a"],
+            overlays=["show_height_marker", "show_timer"],
+            motion={"mode": "static"},
+            why_it_matters="This prevents mixing horizontal distance into a vertical free-fall time calculation.",
+            visual_director_beat="time_of_flight",
+            hide_live_values=True,
+        ),
+        _conceptual_beat(
+            step_id="horizontal_launch_impact_vy",
+            title="Find vertical impact velocity",
+            learner_message="As the ball moves, horizontal velocity stays constant while gravity grows the downward velocity.",
+            sub_reveals=[
+                _sub_reveal(
+                    "fall_motion",
+                    "Watch the ball follow the path while the downward component grows.",
+                    "Animate the trajectory and show the changing velocity components.",
+                    ["v_y = gt", vy_line],
+                    ["trajectory:path", "point:landing", "event:impact", "velocity:impact_y_component", "velocity:x_component"],
+                    ["velocity:impact_y_component", "velocity:x_component"],
+                ),
+            ],
+            visual_action="show_impact_vertical_velocity",
+            visual_focus=["trajectory:path", "point:landing", "event:impact", "velocity:impact_y_component", "velocity:x_component"],
+            visible_vectors=["*:vx", "*:vy"],
+            overlays=["show_trajectory", "show_motion_progress", "show_velocity_components"],
+            motion={"mode": "partial", "event": "impact"},
+            why_it_matters="The vertical impact component is not present at launch; it is built by gravity during the fall.",
+            visual_director_beat="impact_vertical_velocity",
+            hide_live_values=True,
+        ),
+        _conceptual_beat(
+            step_id="horizontal_launch_impact_speed",
+            title="Combine velocity components at impact",
+            learner_message="Just before impact, the velocity is a right triangle: horizontal component, vertical component, and resultant.",
+            sub_reveals=[
+                _sub_reveal(
+                    "velocity_triangle",
+                    "Freeze at impact and combine the two perpendicular velocity components.",
+                    "Show the velocity triangle at impact.",
+                    ["v_x = u", "v_y = gt", "|v| = sqrt(v_x^2 + v_y^2)", speed_line],
+                    ["point:landing", "event:impact", "velocity:impact", "velocity:impact_x_component", "velocity:impact_y_component"],
+                    ["velocity:impact", "velocity:impact_x_component", "velocity:impact_y_component"],
+                ),
+            ],
+            visual_action="show_impact_velocity_triangle",
+            visual_focus=["point:landing", "event:impact", "velocity:impact", "velocity:impact_x_component", "velocity:impact_y_component"],
+            visible_vectors=["*:vx", "*:vy", "*:v"],
+            overlays=["show_trajectory", "show_velocity_components"],
+            motion={"mode": "freeze", "event": "impact"},
+            why_it_matters="The speed is the length of the resultant vector, not just the vertical component.",
+            visual_director_beat="impact_speed",
+            hide_live_values=True,
+        ),
+        _conceptual_beat(
+            step_id="horizontal_launch_impact_angle",
+            title="Find the impact angle with the horizontal",
+            learner_message="Use the same impact triangle to read the direction below the horizontal.",
+            sub_reveals=[
+                _sub_reveal(
+                    "angle",
+                    "The angle is measured at impact between the horizontal component and the resultant velocity.",
+                    "Add the impact angle arc to the velocity triangle.",
+                    ["tan theta = v_y / v_x", angle_line],
+                    ["point:landing", "event:impact", "quantity:impact_angle", "velocity:impact", "velocity:impact_x_component", "velocity:impact_y_component"],
+                    ["quantity:impact_angle", "velocity:impact"],
+                ),
+            ],
+            visual_action="show_impact_angle",
+            visual_focus=["point:landing", "event:impact", "quantity:impact_angle", "velocity:impact", "velocity:impact_x_component", "velocity:impact_y_component"],
+            visible_vectors=["*:vx", "*:vy", "*:v"],
+            overlays=["show_trajectory", "show_velocity_components"],
+            motion={"mode": "freeze", "event": "impact"},
+            why_it_matters="The answer needs both magnitude and direction, so the angle must be tied to the impact triangle.",
+            visual_director_beat="impact_angle",
+            hide_live_values=True,
+        ),
+    ]
 
 
 def _incline_collision_conceptual_beats(result: EvaluationResult) -> list[dict]:
@@ -906,6 +1051,8 @@ def _conceptual_beat(
     motion: dict,
     why_it_matters: str,
     labels: list[dict] | None = None,
+    visual_director_beat: str = "",
+    hide_live_values: bool = False,
 ) -> dict:
     highlight_ids = list(dict.fromkeys([item for reveal in sub_reveals for item in reveal.get("highlight_ids", [])] or visual_focus))
     reveal_ids = list(dict.fromkeys(visual_focus + [item for reveal in sub_reveals for item in reveal.get("reveal_ids", [])]))
@@ -922,6 +1069,10 @@ def _conceptual_beat(
         "motion": motion,
         "camera": "full_scene",
     }
+    if visual_director_beat:
+        visual_plan["_visual_director_beat"] = visual_director_beat
+    if hide_live_values:
+        visual_plan["hide_live_values"] = True
     visual_plan["visual_state"] = _visual_state_for_plan(visual_plan)
     return {
         "id": f"beat_{step_id}",
@@ -937,6 +1088,41 @@ def _conceptual_beat(
         "why_it_matters": why_it_matters,
         "visual_plan": visual_plan,
     }
+
+
+def _attach_conceptual_beat_visual_spec(result: EvaluationResult, beat: dict) -> dict:
+    visual_plan = dict(beat.get("visual_plan") or {})
+    if visual_plan.get("type") == "text_only":
+        return beat
+    step_id = str(beat.get("step_id") or beat.get("id") or "")
+    text = _conceptual_beat_text_blob(beat)
+    visual_plan = attach_beat_visual_spec(
+        result=result,
+        step_id=step_id,
+        title=str(beat.get("title") or ""),
+        text=text,
+        visual_plan=visual_plan,
+    )
+    updated = dict(beat)
+    updated["visual_plan"] = visual_plan
+    updated["beat_visual_spec"] = visual_plan.get("beat_visual_spec") or {}
+    return updated
+
+
+def _conceptual_beat_text_blob(beat: dict) -> str:
+    parts = [
+        beat.get("step_id") or "",
+        beat.get("title") or "",
+        beat.get("learner_message") or "",
+        beat.get("visual_instruction") or "",
+        beat.get("why_it_matters") or "",
+    ]
+    for reveal in beat.get("sub_reveals") or []:
+        parts.append(reveal.get("id") or "")
+        parts.append(reveal.get("text") or "")
+        parts.append(reveal.get("visual_instruction") or "")
+        parts.extend(reveal.get("formula_lines") or [])
+    return " ".join(str(part) for part in parts).lower()
 
 
 def _givens_map(givens: list[str]) -> dict[str, str]:

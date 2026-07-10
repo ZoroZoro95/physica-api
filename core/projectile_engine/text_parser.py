@@ -246,6 +246,8 @@ def _infer_engine_case(text: str) -> str | None:
         return "level_ground_position_at_time"
     if "passes through" in text and "high after" in text and "horizontal velocity" in text:
         return "level_ground_position_at_time"
+    if _is_height_launch_context(text) and _asks_impact_velocity(text):
+        return "height_launch_horizontal_scenario" if _is_horizontal_launch(text) else "height_launch_multi_quantity"
     if _is_height_launch_context(text) and len(_requested_level_ground_outputs(text)) >= 2:
         return "height_launch_horizontal_scenario" if _is_horizontal_launch(text) else "height_launch_multi_quantity"
     if len(_requested_level_ground_outputs(text)) >= 2:
@@ -367,6 +369,9 @@ def _infer_common_givens(text: str) -> list[str]:
     g = _infer_gravity(text)
     if g:
         givens.append(f"g={g}")
+    direction = _horizontal_direction_sign(text)
+    if direction < 0:
+        givens.append("x_direction=-1")
     return givens
 
 
@@ -391,6 +396,9 @@ def _infer_time_interval(text: str) -> str | None:
 
 
 def _infer_velocity_value(text: str) -> str | None:
+    match = re.search(r"(?<![\w.])([+-]?[0-9]+(?:\.[0-9]+)?)\s*i\s*m/s\b", text)
+    if match:
+        return f"{abs(float(match.group(1))):g} m/s"
     match = re.search(r"(?:velocity|speed)\s+(?:of\s+)?([0-9]+(?:\.[0-9]+)?(?:\s*(?:sqrt|root|√)\(?[0-9]+\)?)?)\s*m/s", text)
     if match:
         return f"{_normalize_radical(match.group(1))} m/s"
@@ -434,6 +442,12 @@ def _is_horizontal_launch(text: str) -> bool:
         return False
     if "initial horizontal velocity" in text and "find" in text:
         return False
+    if re.search(r"\bu[_\s]*y\s*=\s*0\b", text) or re.search(r"\buy\s*=\s*0\b", text):
+        return True
+    if re.search(r"(?<![\w.])[+-]?[0-9]+(?:\.[0-9]+)?\s*i\s*m/s\b", text):
+        return True
+    if re.search(r"\b0\s*(?:deg|degree|degrees)\s+(?:from|above|with)\s+(?:the\s+)?horizontal\b", text):
+        return True
     return (
         "thrown horizontally" in text
         or "projected horizontally" in text
@@ -441,6 +455,10 @@ def _is_horizontal_launch(text: str) -> bool:
         or "launched horizontally" in text
         or "fired horizontally" in text
         or "horizontally" in text
+        or "parallel to the ground" in text
+        or "parallel to ground" in text
+        or "x direction" in text
+        or "sideways" in text
         or "horizontal speed" in text
         or "horizontal velocity" in text
         or "rolls off" in text
@@ -455,13 +473,16 @@ def _is_height_launch_context(text: str) -> bool:
         "tower",
         "building",
         "balcony",
+        "roof",
         "platform",
         "table",
         "cart",
         "from a height",
+        "from height",
         "from the top",
         "from the edge",
         "above the ground",
+        "above ground",
     )
     return any(marker in text for marker in launch_markers) or re.search(
         r"(?:fall|falls|fell|drop|drops|dropped)\s+[0-9]+(?:\.[0-9]+)?\s*m\s+(?:to|before|until)\s+(?:the\s+)?ground",
@@ -523,9 +544,73 @@ def _requested_level_ground_outputs(text: str) -> list[str]:
     if any(marker in text for marker in ("maximum height", "max height", "greatest height", "maximum altitude", "altitude gained")):
         if not _asks_time_to_peak(text) or any(marker in text for marker in ("and maximum height", "and max height", "height and")):
             outputs.append("maximum_height")
+    if _asks_impact_speed(text):
+        outputs.append("impact_speed")
+    if _asks_impact_angle(text):
+        outputs.append("impact_angle")
     if any(marker in text for marker in ("components", "component", "u_x", "ux", "uₓ", "u_y", "uy", "uᵧ", "horizontal velocity", "vertical velocity")):
         outputs.append("components")
     return list(dict.fromkeys(outputs))
+
+
+def _asks_impact_velocity(text: str) -> bool:
+    return _asks_impact_speed(text) or _asks_impact_angle(text)
+
+
+def _asks_impact_speed(text: str) -> bool:
+    return any(marker in text for marker in (
+        "impact speed",
+        "speed at ground impact",
+        "speed and direction",
+        "speed just before",
+        "speed before impact",
+        "speed before hitting",
+        "speed with which it hits",
+        "speed with which it hit",
+        "final speed",
+        "magnitude of the velocity",
+        "magnitude and direction",
+        "resultant velocity",
+        "velocity vector",
+        "impact velocity",
+        "velocity at impact",
+        "velocity just before",
+        "velocity when it reaches",
+        "velocity when it reaches the ground",
+        "velocity when it hits",
+        "velocity when it hits the ground",
+        "just before impact",
+        "just before striking",
+        "just before hitting",
+        "just before it lands",
+        "just before reaching the ground",
+        "ground impact",
+    ))
+
+
+def _asks_impact_angle(text: str) -> bool:
+    return any(marker in text for marker in (
+        "impact angle",
+        "angle made by the velocity",
+        "angle with the horizontal",
+        "angle its velocity makes",
+        "angle the velocity makes",
+        "angle below the horizontal",
+        "angle of descent",
+        "speed and direction",
+        "direction of its velocity",
+        "direction of the velocity",
+        "magnitude and direction",
+        "direction just before",
+        "direction at impact",
+        "velocity when it reaches",
+        "velocity when it reaches the ground",
+        "velocity when it hits",
+        "velocity when it hits the ground",
+        "just before it lands",
+        "velocity vector",
+        "impact velocity",
+    ))
 
 
 def _is_special_non_composite_context(text: str) -> bool:
@@ -859,15 +944,32 @@ def _infer_angle_after(text: str, markers: list[str]) -> str | None:
 
 
 def _infer_horizontal_component(text: str) -> str | None:
+    vector_match = re.search(r"(?<![\w.])([+-]?[0-9]+(?:\.[0-9]+)?)\s*i\s*m/s\b", text)
+    if vector_match:
+        return f"{float(vector_match.group(1)):g} m/s"
     patterns = [
-        r"(?:horizontal component|horizontal speed|horizontal velocity|u_x|ux|v_x|vx)\s*(?:of\s+velocity\s*)?(?:is|=|of)?\s*([0-9]+(?:\.[0-9]+)?)\s*m/s",
-        r"([0-9]+(?:\.[0-9]+)?)\s*m/s\s+(?:horizontally|horizontal)",
+        r"(?:horizontal component|horizontal speed|horizontal velocity|u_x|ux|v_x|vx)\s*(?:of\s+velocity\s*)?(?:is|=|of)?\s*([+-]?[0-9]+(?:\.[0-9]+)?)\s*m/s",
+        r"([+-]?[0-9]+(?:\.[0-9]+)?)\s*m/s\s+(?:horizontally|horizontal)",
     ]
     for pattern in patterns:
         match = re.search(pattern, text)
         if match:
             return f"{match.group(1)} m/s"
+    if _is_horizontal_launch(text):
+        speed = _infer_velocity_value(text)
+        if speed:
+            sign = _horizontal_direction_sign(text)
+            return f"{'-' if sign < 0 else ''}{speed}"
     return None
+
+
+def _horizontal_direction_sign(text: str) -> int:
+    if re.search(
+        r"(?:\b(?:to\s+the\s+left|towards\s+the\s+left|leftward|westward|to\s+the\s+west|towards\s+the\s+west|negative\s+x|negative\s+x-axis|negative\s+x\s+axis)\b|-\s*x\s+(?:axis|direction))",
+        text,
+    ):
+        return -1
+    return 1
 
 
 def _infer_vertical_component(text: str) -> str | None:

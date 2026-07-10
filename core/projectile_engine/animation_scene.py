@@ -83,6 +83,7 @@ def build_animation_scene_spec(
             return finalize(monkey_scene)
 
     target = _point_from_givens(merged_givens, ["target"])
+    horizontal_direction = _number_from_givens(merged_givens, ["x_direction", "horizontal_direction"]) or 1.0
     u = _number_from_givens(merged_givens, ["v0", "u", "speed", "velocity"])
     if result.engine_case == "minimum_speed_to_hit_target" and result.computed_value is not None:
         u = result.computed_value
@@ -109,10 +110,29 @@ def build_animation_scene_spec(
 
     g = _number_from_givens(merged_givens, ["g"]) or 10.0
     launch_height = _number_from_givens(merged_givens, ["height", "launch_height", "initial_height", "h", "y0"]) or 0.0
+    signed_horizontal_velocity = _number_from_givens(merged_givens, ["vx", "ux", "v_x", "u_x", "horizontal_velocity"])
+    if result.engine_case == "height_launch_horizontal_scenario" and signed_horizontal_velocity is not None:
+        u = abs(signed_horizontal_velocity)
+        theta_deg = 0.0
+    if result.engine_case == "height_launch_horizontal_scenario" and launch_height <= 0:
+        horizontal_range = _number_from_givens(merged_givens, ["range", "r", "horizontal_distance", "distance"])
+        solved_time = _number_from_result_text(result, ["time", "t"])
+        if solved_time is None and horizontal_range is not None and u:
+            solved_time = horizontal_range / max(abs(u), 0.001)
+        solved_height = _number_from_result_text(result, ["height", "h"])
+        if solved_height is not None:
+            launch_height = solved_height
+        elif solved_time is not None:
+            launch_height = 0.5 * g * solved_time * solved_time
 
     theta = math.radians(theta_deg)
     ux = u * math.cos(theta)
     uy = u * math.sin(theta)
+    if result.engine_case == "height_launch_horizontal_scenario" and signed_horizontal_velocity is not None:
+        ux = signed_horizontal_velocity
+        uy = 0.0
+    elif horizontal_direction < 0 and abs(ux) > 1e-9:
+        ux = -abs(ux)
     full_time = _positive_ground_time(y0=launch_height, uy=uy, g=g)
     full_range = ux * full_time
     peak_gain = (uy * uy) / (2 * g) if g else 0
@@ -132,18 +152,19 @@ def build_animation_scene_spec(
         display_range = max(wall_x or full_range, full_range)
     elif unknown == "position_at_time" and position_time is not None:
         display_time = _number_from_givens(merged_givens, ["time", "t"]) or full_time
-        display_range = max(ux * display_time, full_range)
+        display_range = min(ux * display_time, full_range) if ux < 0 else max(ux * display_time, full_range)
     elif target:
         display_time = (target[0] / ux) if target and ux else full_time
         display_range = max(target[0] if target else full_range, full_range)
     else:
         display_time = full_time
-        display_range = (
+        display_range_value = (
             result.computed_value
             if unknown in {"range", "maximum_range"}
             and result.computed_value is not None
             else full_range
         )
+        display_range = -abs(display_range_value) if ux < 0 else abs(display_range_value)
 
     display_height = (
         result.computed_value
@@ -194,7 +215,11 @@ def build_animation_scene_spec(
     if representative_scene:
         warnings.append("Symbolic derivation is visualized with representative values u=20 m/s, theta=45deg, g=10 m/s^2.")
 
-    surfaces = [{"id": "ground", "type": "line", "from_xy": [0.0, 0.0], "to_xy": [display_range, 0.0], "label": "ground"}]
+    ground_min = min(0.0, display_range)
+    ground_max = max(0.0, display_range)
+    if math.isclose(ground_min, ground_max, abs_tol=1e-9):
+        ground_max = 1.0
+    surfaces = [{"id": "ground", "type": "line", "from_xy": [ground_min, 0.0], "to_xy": [ground_max, 0.0], "label": "ground"}]
     if launch_height > 0:
         points["drop_base"] = {"x": 0.0, "y": 0.0, "label": "base"}
         surfaces.append({
@@ -578,12 +603,24 @@ def _build_representative_projectile_scene(
 ) -> dict[str, Any]:
     g = _number_from_givens(givens, ["g"]) or 10.0
     launch_height = _number_from_givens(givens, ["height", "launch_height", "initial_height", "h", "y0"]) or 0.0
+    horizontal_direction = _number_from_givens(givens, ["x_direction", "horizontal_direction"]) or 1.0
     horizontal_speed = _number_from_givens(givens, ["vx", "ux", "v_x", "u_x"])
+    if horizontal_speed is not None and horizontal_speed < 0:
+        horizontal_direction = -1.0
     u = _number_from_givens(givens, ["v0", "u", "speed", "velocity"]) or _first_speed_from_text(question_text)
     theta_deg = _number_from_givens(givens, ["angle", "theta", "launch_angle"])
     if result.engine_case == "horizontal_throw_velocity_angle_time" or ("horizontal" in question_text.lower() and horizontal_speed is not None):
-        u = horizontal_speed or u or 10.0
+        u = abs(horizontal_speed) if horizontal_speed is not None else (u or 10.0)
         theta_deg = 0.0
+        horizontal_range = _number_from_givens(givens, ["range", "r", "horizontal_distance", "distance"])
+        solved_time = _number_from_result_text(result, ["time", "t"])
+        if solved_time is None and horizontal_range is not None and u:
+            solved_time = horizontal_range / max(abs(u), 0.001)
+        solved_height = _number_from_result_text(result, ["height", "h"])
+        if not launch_height and solved_height is not None:
+            launch_height = solved_height
+        if not launch_height and solved_time is not None:
+            launch_height = 0.5 * g * solved_time * solved_time
         launch_height = launch_height or 10.0
     else:
         u = u or 20.0
@@ -595,8 +632,11 @@ def _build_representative_projectile_scene(
         theta_deg = 35.0
 
     theta = math.radians(theta_deg)
-    ux = u * math.cos(theta)
-    uy = u * math.sin(theta)
+    speed = abs(u)
+    ux = speed * math.cos(theta)
+    if horizontal_direction < 0 and abs(ux) > 1e-9:
+        ux = -abs(ux)
+    uy = speed * math.sin(theta)
     duration = _positive_ground_time(y0=launch_height, uy=uy, g=g)
     if duration <= 0:
         duration = max(_first_time_from_text(question_text) or 2.0, 0.5)
@@ -615,13 +655,14 @@ def _build_representative_projectile_scene(
         result=result,
         world=_scene_world("target" if target is not None else "height_launch" if launch_height > 0 else "level_ground", target=target, wall_x=None, launch_height=launch_height),
         unknown=_unknown_for_case(result.engine_case, question_text),
-        u=u,
+        u=speed,
         theta_deg=theta_deg,
         g=g,
         launch_height=launch_height,
         duration=duration,
         sampled=sampled,
         points=points,
+        horizontal_direction=horizontal_direction,
         warnings=["Representative geometry for a symbolic or conceptual solved case; equations and final answer remain authoritative."],
     )
 
@@ -639,12 +680,20 @@ def _representative_projectile_scene(
     sampled: list[dict[str, float]],
     points: dict[str, dict[str, Any]],
     warnings: list[str],
+    horizontal_direction: float = 1.0,
 ) -> dict[str, Any]:
-    ux = u * math.cos(math.radians(theta_deg))
-    uy = u * math.sin(math.radians(theta_deg))
+    speed = abs(u)
+    ux = speed * math.cos(math.radians(theta_deg))
+    if horizontal_direction < 0 and abs(ux) > 1e-9:
+        ux = -abs(ux)
+    uy = speed * math.sin(math.radians(theta_deg))
     landing_x = float(points.get("landing", {}).get("x") or (sampled[-1]["x"] if sampled else 0.0))
     max_height = max((point["y"] for point in sampled), default=launch_height)
-    surfaces = [{"id": "ground", "type": "line", "from_xy": [min(0.0, landing_x), 0.0], "to_xy": [max(landing_x, 1.0), 0.0], "label": "ground"}]
+    ground_min = min(0.0, landing_x)
+    ground_max = max(0.0, landing_x)
+    if math.isclose(ground_min, ground_max, abs_tol=1e-9):
+        ground_max = 1.0
+    surfaces = [{"id": "ground", "type": "line", "from_xy": [ground_min, 0.0], "to_xy": [ground_max, 0.0], "label": "ground"}]
     if launch_height > 0:
         points.setdefault("drop_base", {"x": 0.0, "y": 0.0, "label": "base"})
         surfaces.append({"id": "cliff_face", "type": "vertical_drop", "from_xy": [0.0, 0.0], "to_xy": [0.0, launch_height], "label": f"h = {launch_height:g} m"})
@@ -685,7 +734,7 @@ def _representative_projectile_scene(
             }
         ],
         "quantities": {
-            "u": {"value": u, "unit": "m/s", "label": "u"},
+            "u": {"value": speed, "unit": "m/s", "label": "u"},
             "theta": {"value": theta_deg, "unit": "deg", "label": "theta"},
             "g": {"value": g, "unit": "m/s^2", "label": "g"},
             "ux": {"value": ux, "unit": "m/s", "label": "u_x"},
@@ -2722,6 +2771,23 @@ def _number_from_givens(givens: dict[str, str], keys: list[str]) -> float | None
         parsed = _parse_number(value)
         if parsed is not None:
             return parsed
+    return None
+
+
+def _number_from_result_text(result: EvaluationResult, labels: list[str]) -> float | None:
+    text = "; ".join([str(result.computed_text or ""), *(str(item) for item in result.trace or [])])
+    for label in labels:
+        escaped = re.escape(label)
+        for pattern in (
+            rf"\b{escaped}\b\s*=\s*([-+]?\d+(?:\.\d+)?)",
+            rf"\b{escaped}\b\s+is\s+([-+]?\d+(?:\.\d+)?)",
+        ):
+            match = re.search(pattern, text, re.IGNORECASE)
+            if match:
+                try:
+                    return float(match.group(1))
+                except ValueError:
+                    continue
     return None
 
 
