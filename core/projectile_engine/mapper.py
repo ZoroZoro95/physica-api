@@ -77,6 +77,8 @@ def _infer_unknown(text: str) -> str:
         return "position_at_time"
     if "passes through" in text and "high after" in text and "horizontal velocity" in text:
         return "position_at_time"
+    if _asks_impact_velocity(text):
+        return "impact_velocity"
     if len(_requested_level_ground_outputs(text)) >= 2:
         return "level_ground_multi_quantities"
     if _contains_any(text, ["splits into", "split into", "splits at", "split at"]) and _contains_any(text, ["highest point", "apex"]):
@@ -167,12 +169,7 @@ def _infer_constraints(text: str) -> set[str]:
         constraints.add("air_drag")
     if _contains_any(text, ["wall", "barrier", "obstacle"]):
         constraints.add("fixed_horizontal_distance")
-    if (
-        "no horizontal velocity" not in text
-        and "without horizontal velocity" not in text
-        and not ("initial horizontal velocity" in text and "find" in text)
-        and _contains_any(text, ["thrown horizontally", "projected horizontally", "projected horizontal", "launched horizontally", "fired horizontally", "horizontally", "leaves a cliff horizontally", "leaves horizontally", "horizontal speed", "horizontal velocity", "rolls off"])
-    ):
+    if _is_horizontal_launch(text):
         constraints.add("horizontal")
     if _is_height_launch_context(text):
         constraints.add("initial_height")
@@ -249,6 +246,8 @@ def _engine_from_spec(world: str, unknown: str, constraints: set[str]) -> str | 
     if world == "moving_wedge":
         return None
     if world == "height_launch":
+        if unknown == "impact_velocity":
+            return "height_launch_horizontal_scenario" if "horizontal" in constraints else "height_launch_multi_quantity"
         if unknown == "level_ground_multi_quantities":
             return "height_launch_horizontal_scenario" if "horizontal" in constraints else "height_launch_multi_quantity"
         if unknown == "unknown" and "horizontal" in constraints:
@@ -289,6 +288,7 @@ def _engine_from_spec(world: str, unknown: str, constraints: set[str]) -> str | 
 
 def _infer_velocity_value(text: str) -> str | None:
     patterns = [
+        r"\b([0-9]+(?:\.[0-9]+)?)\s*i\s*m/s\b",
         r"(?:speed|velocity|initial speed|initial velocity)\s*(?:of\s*)?=\s*([0-9]+(?:\.[0-9]+)?(?:\s*(?:sqrt|root|√)\(?[0-9]+\)?)?)\s*m/s",
         r"(?:speed|velocity|initial speed|initial velocity)\s*(?:of\s*)?([0-9]+(?:\.[0-9]+)?(?:\s*(?:sqrt|root|√)\(?[0-9]+\)?)?)\s*m/s",
         r"([0-9]+(?:\.[0-9]+)?(?:\s*(?:sqrt|root|√)\(?[0-9]+\)?)?)\s*m/s",
@@ -301,12 +301,7 @@ def _infer_velocity_value(text: str) -> str | None:
 
 
 def _infer_launch_angle(text: str) -> str | None:
-    if (
-        "no horizontal velocity" not in text
-        and "without horizontal velocity" not in text
-        and not ("initial horizontal velocity" in text and "find" in text)
-        and _contains_any(text, ["thrown horizontally", "projected horizontally", "projected horizontal", "launched horizontally", "fired horizontally", "horizontally", "horizontal speed", "horizontal velocity", "rolls off"])
-    ):
+    if _is_horizontal_launch(text):
         return "0deg"
     patterns = [
         r"(?:angle|at|making an angle of|inclination)\s*(?:of\s*)?([0-9]+(?:\.[0-9]+)?)\s*(?:deg|degree|degrees)",
@@ -390,6 +385,10 @@ def _requested_level_ground_outputs(text: str) -> list[str]:
     if _contains_any(text, ["maximum height", "max height", "greatest height"]):
         if not _asks_time_to_peak(text) or _contains_any(text, ["and maximum height", "and max height", "height and"]):
             outputs.append("maximum_height")
+    if _asks_impact_speed(text):
+        outputs.append("impact_speed")
+    if _asks_impact_angle(text):
+        outputs.append("impact_angle")
     if _contains_any(text, ["components", "component", "u_x", "ux", "uₓ", "u_y", "uy", "uᵧ", "horizontal velocity", "vertical velocity"]):
         outputs.append("components")
     return list(dict.fromkeys(outputs))
@@ -415,18 +414,111 @@ def _is_height_launch_context(text: str) -> bool:
             "tower",
             "building",
             "balcony",
+            "roof",
             "platform",
             "table",
             "cart",
             "from a height",
+            "from height",
             "from the top",
             "from the edge",
             "above the ground",
+            "above ground",
         )
     ) or re.search(
         r"(?:fall|falls|fell|drop|drops|dropped)\s+[0-9]+(?:\.[0-9]+)?\s*m\s+(?:to|before|until)\s+(?:the\s+)?ground",
         text,
     ) is not None
+
+
+def _is_horizontal_launch(text: str) -> bool:
+    if "no horizontal velocity" in text or "without horizontal velocity" in text:
+        return False
+    if "initial horizontal velocity" in text and "find" in text:
+        return False
+    if re.search(r"\bu[_\s]*y\s*=\s*0\b", text) or re.search(r"\buy\s*=\s*0\b", text):
+        return True
+    if re.search(r"\b[0-9]+(?:\.[0-9]+)?\s*i\s*m/s\b", text):
+        return True
+    if re.search(r"\b0\s*(?:deg|degree|degrees)\s+(?:from|above|with)\s+(?:the\s+)?horizontal\b", text):
+        return True
+    return _contains_any(text, [
+        "thrown horizontally",
+        "projected horizontally",
+        "projected horizontal",
+        "launched horizontally",
+        "fired horizontally",
+        "horizontally",
+        "parallel to the ground",
+        "parallel to ground",
+        "x direction",
+        "sideways",
+        "leaves a cliff horizontally",
+        "leaves horizontally",
+        "horizontal speed",
+        "horizontal velocity",
+        "rolls off",
+    ])
+
+
+def _asks_impact_velocity(text: str) -> bool:
+    return _asks_impact_speed(text) or _asks_impact_angle(text)
+
+
+def _asks_impact_speed(text: str) -> bool:
+    return _contains_any(text, [
+        "impact speed",
+        "speed at ground impact",
+        "speed and direction",
+        "speed just before",
+        "speed before impact",
+        "speed before hitting",
+        "speed with which it hits",
+        "speed with which it hit",
+        "final speed",
+        "magnitude of the velocity",
+        "magnitude and direction",
+        "resultant velocity",
+        "velocity vector",
+        "impact velocity",
+        "velocity at impact",
+        "velocity just before",
+        "velocity when it reaches",
+        "velocity when it reaches the ground",
+        "velocity when it hits",
+        "velocity when it hits the ground",
+        "just before impact",
+        "just before striking",
+        "just before hitting",
+        "just before it lands",
+        "just before reaching the ground",
+        "ground impact",
+    ])
+
+
+def _asks_impact_angle(text: str) -> bool:
+    return _contains_any(text, [
+        "impact angle",
+        "angle made by the velocity",
+        "angle with the horizontal",
+        "angle its velocity makes",
+        "angle the velocity makes",
+        "angle below the horizontal",
+        "angle of descent",
+        "speed and direction",
+        "direction of its velocity",
+        "direction of the velocity",
+        "magnitude and direction",
+        "direction just before",
+        "direction at impact",
+        "velocity when it reaches",
+        "velocity when it reaches the ground",
+        "velocity when it hits",
+        "velocity when it hits the ground",
+        "just before it lands",
+        "velocity vector",
+        "impact velocity",
+    ])
 
 
 def _is_vertical_upward_launch(text: str) -> bool:

@@ -151,7 +151,9 @@ def requested_quantity_case(requested_quantity: str | None, question_text: str =
         return "level_ground_position_at_time"
     if any(marker in text for marker in ("wall", "barrier", "obstacle")) and any(marker in text for marker in ("clear", "clears", "cross", "crosses")):
         return "wall_clearance_condition"
-    elevated_launch = any(marker in text for marker in ("tower", "building", "balcony", "platform", "table", "cart", "cliff", "from a height"))
+    elevated_launch = _is_height_launch_context(text)
+    if elevated_launch and _asks_impact_velocity(text):
+        return "height_launch_horizontal_scenario" if _is_horizontal_launch(text) else "height_launch_multi_quantity"
     if elevated_launch and _requested_level_ground_output_count(text) >= 2:
         return "height_launch_horizontal_scenario" if _is_horizontal_launch(text) else "height_launch_multi_quantity"
     if _requested_level_ground_output_count(text) >= 2:
@@ -241,6 +243,8 @@ def _infer_case_from_question_target(question_text: str) -> str | None:
         marker in text for marker in ("time of flight", "flight time")
     ):
         return "level_ground_time_of_flight_derivation"
+    if _is_height_launch_context(text) and _asks_impact_velocity(text):
+        return "height_launch_horizontal_scenario" if _is_horizontal_launch(text) else "height_launch_multi_quantity"
     if _is_height_launch_context(text) and _requested_level_ground_output_count(text) >= 2:
         return "height_launch_horizontal_scenario" if _is_horizontal_launch(text) else "height_launch_multi_quantity"
     if _requested_level_ground_output_count(text) >= 2:
@@ -335,6 +339,8 @@ def _priority_text_case(text: str) -> str | None:
         return "relative_projectile_apex_collision"
     if _is_piecewise_acceleration_range_context(text):
         return "piecewise_acceleration_at_apex_range"
+    if _is_height_launch_context(text) and _asks_impact_velocity(text):
+        return "height_launch_horizontal_scenario" if _is_horizontal_launch(text) else "height_launch_multi_quantity"
     if _is_height_launch_context(text) and _requested_level_ground_output_count(text) >= 2:
         return "height_launch_horizontal_scenario" if _is_horizontal_launch(text) else "height_launch_multi_quantity"
     if _asks_time_to_peak(text):
@@ -528,6 +534,10 @@ def _requested_level_ground_output_count(text: str) -> int:
     if any(marker in text for marker in ("maximum height", "max height", "greatest height", "maximum altitude", "altitude gained")):
         if not peak_time or any(marker in text for marker in ("and maximum height", "and max height", "height and")):
             outputs.append("maximum_height")
+    if _asks_impact_speed(text):
+        outputs.append("impact_speed")
+    if _asks_impact_angle(text):
+        outputs.append("impact_angle")
     if any(marker in text for marker in ("components", "component", "u_x", "ux", "uₓ", "u_y", "uy", "uᵧ", "horizontal velocity", "vertical velocity")):
         outputs.append("components")
     return len(set(outputs))
@@ -569,12 +579,16 @@ def _is_height_launch_context(text: str) -> bool:
             "tower",
             "building",
             "balcony",
+            "roof",
             "platform",
             "table",
             "cart",
             "from a height",
+            "from height",
             "from the top",
             "from the edge",
+            "above the ground",
+            "above ground",
         )
     )
 
@@ -584,6 +598,12 @@ def _is_horizontal_launch(text: str) -> bool:
         return False
     if "initial horizontal velocity" in text and "find" in text:
         return False
+    if re.search(r"\bu[_\s]*y\s*=\s*0\b", text) or re.search(r"\buy\s*=\s*0\b", text):
+        return True
+    if re.search(r"\b[0-9]+(?:\.[0-9]+)?\s*i\s*m/s\b", text):
+        return True
+    if re.search(r"\b0\s*(?:deg|degree|degrees)\s+(?:from|above|with)\s+(?:the\s+)?horizontal\b", text):
+        return True
     return any(
         marker in text
         for marker in (
@@ -593,12 +613,77 @@ def _is_horizontal_launch(text: str) -> bool:
             "launched horizontally",
             "fired horizontally",
             "horizontally from",
+            "horizontally",
+            "parallel to the ground",
+            "parallel to ground",
+            "x direction",
+            "sideways",
             "horizontal speed",
             "horizontal velocity",
             "rolls off",
             "leaves horizontally",
         )
     )
+
+
+def _asks_impact_velocity(text: str) -> bool:
+    return _asks_impact_speed(text) or _asks_impact_angle(text)
+
+
+def _asks_impact_speed(text: str) -> bool:
+    return any(marker in text for marker in (
+        "impact speed",
+        "speed at ground impact",
+        "speed and direction",
+        "speed just before",
+        "speed before impact",
+        "speed before hitting",
+        "speed with which it hits",
+        "speed with which it hit",
+        "final speed",
+        "magnitude of the velocity",
+        "magnitude and direction",
+        "resultant velocity",
+        "velocity vector",
+        "impact velocity",
+        "velocity at impact",
+        "velocity just before",
+        "velocity when it reaches",
+        "velocity when it reaches the ground",
+        "velocity when it hits",
+        "velocity when it hits the ground",
+        "just before impact",
+        "just before striking",
+        "just before hitting",
+        "just before it lands",
+        "just before reaching the ground",
+        "ground impact",
+    ))
+
+
+def _asks_impact_angle(text: str) -> bool:
+    return any(marker in text for marker in (
+        "impact angle",
+        "angle made by the velocity",
+        "angle with the horizontal",
+        "angle its velocity makes",
+        "angle the velocity makes",
+        "angle below the horizontal",
+        "angle of descent",
+        "speed and direction",
+        "direction of its velocity",
+        "direction of the velocity",
+        "magnitude and direction",
+        "direction just before",
+        "direction at impact",
+        "velocity when it reaches",
+        "velocity when it reaches the ground",
+        "velocity when it hits",
+        "velocity when it hits the ground",
+        "just before it lands",
+        "velocity vector",
+        "impact velocity",
+    ))
 
 
 def _is_non_ideal_projectile(text: str) -> bool:
