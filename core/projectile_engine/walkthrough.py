@@ -2343,6 +2343,8 @@ def _visual_vectors_from_text(text: str, action: str, focus_ids: list[str], labe
 
 
 def _visual_overlays_from_text(text: str, action: str, visible_vectors: list[str], step_id: str, *, has_incline: bool) -> list[str]:
+    if action == "show_launch_setup":
+        return ["show_scene"]
     overlays: list[str] = []
     motion_mode = str(_visual_motion_from_text(text, action, step_id).get("mode") or "")
     static = _is_static_visual_text(text, action, step_id) or motion_mode in {"static", "freeze"}

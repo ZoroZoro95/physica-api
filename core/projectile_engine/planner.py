@@ -398,7 +398,7 @@ PLAN_BLUEPRINTS: dict[str, dict[str, object]] = {
         "invariant": "Resolve velocity once; vertical motion controls time and height while horizontal uniform motion controls range.",
         "equations": [
             "u_x = u cos(theta), u_y = u sin(theta)",
-            "t_peak = u_y/g",
+            "v_y(t) = u_y - gt; at peak v_y = 0, so 0 = u_y - g t_peak and t_peak = u_y/g",
             "0 = u_y T - (1/2)gT^2",
             "T = 2u_y/g = 2u sin(theta)/g",
             "H = u_y^2/(2g)",
@@ -817,6 +817,8 @@ def _blueprint_step_title(engine_case: str, index: int, step_count: int, equatio
         return "Resolve the launch velocity"
     if lowered.startswith("u_y"):
         return "Resolve the vertical component"
+    if "t_peak" in lowered and "v_y" in lowered:
+        return "Why time to peak equals u_y/g"
     if lowered.startswith("v_y"):
         return "Write vertical velocity"
     if lowered.startswith("0 = u_y") and ("t^2" in lowered or " t" in lowered):
@@ -925,6 +927,8 @@ def _blueprint_step_explanation(engine_case: str, index: int, step_count: int, e
         return "Resolve the launch velocity into horizontal and vertical components. Horizontal motion decides range, while vertical motion decides flight time."
     if lowered.startswith("u_y"):
         return "Only the vertical component controls upward slowing, so use u_y = u sin(theta)."
+    if "t_peak" in lowered and ("v_y" in lowered or "0 = u_y" in lowered):
+        return "Gravity reduces vertical velocity linearly with time: v_y(t) = u_y - gt. At the highest point the vertical velocity becomes zero, so 0 = u_y - g t_peak and therefore t_peak = u_y/g."
     if lowered.startswith("v_y"):
         return "Gravity reduces vertical velocity linearly with time: v_y = u_y - gt."
     if lowered.startswith("0 = u_y") and ("t^2" in lowered or " t" in lowered):

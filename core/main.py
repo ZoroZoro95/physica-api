@@ -57,7 +57,12 @@ app = FastAPI(title="Physics Visualiser API")
 def _cors_origins() -> list[str]:
     raw = os.getenv("FRONTEND_ORIGINS") or os.getenv("FRONTEND_ORIGIN") or ""
     origins = [item.strip() for item in raw.split(",") if item.strip()]
-    local_origins = ["http://localhost:3000", "http://127.0.0.1:3000"]
+    local_origins = [
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "http://localhost:3001",
+        "http://127.0.0.1:3001",
+    ]
     if os.getenv("ENVIRONMENT", "").lower() in {"prod", "production"}:
         return origins
     return list(dict.fromkeys([*origins, *local_origins]))

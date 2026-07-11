@@ -2041,7 +2041,11 @@ def _storyboard_for_scene(scene: dict[str, Any], *, result: EvaluationResult) ->
         if camera not in camera_ids:
             camera = "full_scene"
         visible_vectors = contract_visible_vectors(visible_vectors, beat_visual_spec)
-        overlays = _overlays_for_visual_plan(visual_plan) or step.get("overlays") or _overlays_for_step(step_id, step.get("focus_ids") or [], visual_action)
+        overlays = _contract_overlays(
+            _overlays_for_visual_plan(visual_plan) or step.get("overlays") or _overlays_for_step(step_id, step.get("focus_ids") or [], visual_action),
+            beat_visual_spec,
+            visual_action,
+        )
         visual_focus = contract_visible_ids(_show_ids_for_visual_plan(visual_plan) or step.get("focus_ids") or [], beat_visual_spec)
         highlight_ids = contract_visible_ids(_highlight_ids_for_visual_plan(visual_plan) or step.get("highlight_ids") or step.get("focus_ids") or [], beat_visual_spec)
         labels = merge_contract_labels((visual_plan or {}).get("labels") or [], beat_visual_spec.get("labels") or [])
@@ -2087,7 +2091,7 @@ def _storyboard_for_scene(scene: dict[str, Any], *, result: EvaluationResult) ->
             "visual_action": visual_action,
             "camera": "full_scene",
             "visible_vectors": visible_vectors,
-            "overlays": _overlays_for_visual_plan(visual_plan) or ["show_final_answer"],
+            "overlays": _contract_overlays(_overlays_for_visual_plan(visual_plan) or ["show_final_answer"], beat_visual_spec, visual_action),
             "visual_focus": visual_focus,
             "highlight_ids": highlight_ids,
             "camera_target_ids": visual_plan.get("show_ids") or ["answer"],
@@ -2283,6 +2287,37 @@ def _overlays_for_visual_plan(visual_plan: dict[str, Any] | None) -> list[str]:
     return [str(item) for item in overlays if str(item)]
 
 
+def _contract_overlays(overlays: list[str], beat_visual_spec: dict[str, Any], visual_action: str) -> list[str]:
+    family = str(beat_visual_spec.get("family") or "")
+    beat = str(beat_visual_spec.get("beat") or "")
+    if family == "level_ground_projectile":
+        if beat == "setup" or visual_action == "show_launch_setup":
+            return ["show_scene"]
+        if beat == "initial_components" or visual_action == "zoom_launch_vector":
+            return ["show_velocity_components"]
+        if beat == "time_to_peak" or visual_action == "show_peak_time":
+            return ["show_scene"]
+        allowed_by_beat = {
+            "landing_condition": {"show_trajectory", "show_same_height", "show_motion_progress"},
+            "time_of_flight": {"show_trajectory", "show_same_height", "show_timer"},
+            "maximum_height": {"show_trajectory", "show_height_marker", "show_motion_progress"},
+            "horizontal_range": {"show_trajectory", "show_range_marker", "show_motion_progress"},
+            "final_answer": {"show_trajectory", "show_final_answer", "show_range_marker", "show_height_marker", "show_timer"},
+        }.get(beat)
+        if allowed_by_beat:
+            filtered = [item for item in overlays if item in allowed_by_beat]
+            required_by_beat = {
+                "landing_condition": ["show_trajectory", "show_same_height"],
+                "time_of_flight": ["show_trajectory", "show_same_height", "show_timer"],
+                "maximum_height": ["show_trajectory", "show_height_marker"],
+                "horizontal_range": ["show_trajectory", "show_range_marker"],
+                "final_answer": ["show_trajectory"],
+            }
+            required = [item for item in required_by_beat.get(beat, []) if item in allowed_by_beat]
+            return list(dict.fromkeys(required + filtered or ["show_scene"]))
+    return list(dict.fromkeys(overlays or ["show_scene"]))
+
+
 def _show_ids_for_visual_plan(visual_plan: dict[str, Any] | None) -> list[str]:
     if not isinstance(visual_plan, dict):
         return []
@@ -2320,6 +2355,8 @@ def _camera_for_step(step_id: str, step: dict[str, Any]) -> str:
         return "collision"
     if visual_action == "zoom_launch_vector":
         return "setup"
+    if visual_action in {"show_landing_condition", "show_flight_time_root"}:
+        return "full_scene"
     if visual_action in {"highlight_vertical_motion", "highlight_apex"}:
         focus_ids = " ".join(str(item).lower() for item in step.get("focus_ids", []))
         is_peak_time = "peak" in focus_ids or "highest" in focus_ids or "t_peak" in focus_ids or "t_peak" in step_id.lower()
@@ -2607,6 +2644,8 @@ def _camera_targets_for_visual_action(visual_action: str, focus_ids: list[Any] |
 
 def _overlays_for_step(step_id: str, focus_ids: list[Any] | None = None, visual_action: str = "") -> list[str]:
     lowered = step_id.lower() + " " + " ".join(str(item).lower() for item in (focus_ids or []))
+    if visual_action == "show_launch_setup":
+        return ["show_scene"]
     static_actions = {"show_incline_axes", "compare_incline_motion", "zoom_launch_vector"}
     overlays = [] if visual_action in static_actions else ["show_trajectory"]
     if visual_action in {"show_incline_axes", "compare_incline_motion"}:

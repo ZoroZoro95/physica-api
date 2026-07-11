@@ -4,6 +4,7 @@ from typing import Any
 
 from .family_pack import BaseVisualFamilyPack
 from .horizontal_launch import HorizontalLaunchPack
+from .level_ground import LevelGroundProjectilePack
 from .types import VisualFamilyPack
 
 
@@ -22,38 +23,6 @@ class HeightLaunchPack(BaseVisualFamilyPack):
             "beats": ["setup", "initial_components", "time_of_flight", "horizontal_range", "impact_velocity", "final_answer"],
             "selection_policy": "Projectile launched from a nonzero height, not necessarily horizontal.",
             "renderer_templates": ["height-launch-components", "height-launch-fall", "height-launch-impact"],
-        })
-        return payload
-
-
-class LevelGroundPack(BaseVisualFamilyPack):
-    family = "level_ground_projectile"
-    engine_cases = (
-        "level_ground_range",
-        "level_ground_time_of_flight",
-        "level_ground_multi_quantity",
-        "level_ground_range_and_time",
-        "level_ground_time_of_flight_derivation",
-        "level_ground_max_height",
-        "level_ground_time_to_peak",
-        "level_ground_position_at_time",
-        "level_ground_velocity_at_time",
-        "same_height_times_initial_speed",
-        "trajectory_equation_max_height",
-        "projectile_height_scaling",
-        "range_angle_scaling",
-        "range_equals_max_height_angle",
-        "level_ground_launch_angle_from_range",
-        "same_range_doubled_angle_time_ratio",
-        "average_velocity_to_peak",
-    )
-
-    def describe(self) -> dict[str, Any]:
-        payload = super().describe()
-        payload.update({
-            "beats": ["setup", "initial_components", "time_of_flight", "maximum_height", "horizontal_range", "final_answer"],
-            "selection_policy": "Standard same-level projectile with launch components, apex, time, and range.",
-            "renderer_templates": ["level-ground-components", "level-ground-apex", "level-ground-range"],
         })
         return payload
 
@@ -159,6 +128,6 @@ def default_visual_family_packs() -> tuple[VisualFamilyPack, ...]:
         InclinedPlanePack(),
         TwoProjectilesPack(),
         StaircasePack(),
-        LevelGroundPack(),
+        LevelGroundProjectilePack(),
         StandardProjectilePack(),
     )

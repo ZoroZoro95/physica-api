@@ -429,10 +429,12 @@ def main() -> None:
             invariant = storyboard_by_id.get("invariant", {})
             resolve = storyboard_by_id.get("solve_1", {})
             same_height = storyboard_by_id.get("solve_2", {})
-            if "show_range_marker" not in (invariant.get("overlays") or []):
-                failures.append("level maximum range: invariant step does not highlight range")
-            if invariant.get("visible_vectors") != ["__none__"]:
-                failures.append("level maximum range: invariant step should not show velocity vectors")
+            if invariant.get("visual_action") != "show_launch_setup":
+                failures.append("level maximum range: invariant step should show only launch setup")
+            if "show_range_marker" in (invariant.get("overlays") or []):
+                failures.append("level maximum range: invariant step should not show range marker")
+            if "*:v" not in (invariant.get("visible_vectors") or []):
+                failures.append("level maximum range: invariant step should show the launch velocity vector")
             if "show_velocity_components" not in (resolve.get("overlays") or []):
                 failures.append("level maximum range: resolve step does not show velocity components")
             if "show_same_height" not in (same_height.get("overlays") or []):
