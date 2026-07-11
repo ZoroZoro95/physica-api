@@ -1719,17 +1719,23 @@ def _number_from_known_or_time_interval(entry: ManifestEntry, key: str) -> float
 
 def _requested_level_ground_outputs(question_text: str) -> list[str]:
     text = question_text.lower()
+    output_tokens = set(re.sub(r"[^a-z0-9]+", " ", text).split())
     outputs: list[str] = []
     if any(marker in text for marker in ("initial speed", "speed needed", "speed of projection")):
         outputs.append("initial_speed")
     if any(marker in text for marker in ("angle of projection", "launch angle", "find theta", "find the angle", "angle theta")):
         outputs.append("launch_angle")
-    if any(marker in text for marker in ("range", "horizontal distance", "distance from", "how far")):
+    if any(marker in text for marker in ("range", "horizontal distance", "ground distance", "distance covered", "distance travelled", "distance traveled", "distance from", "how far")) or "r" in output_tokens:
         outputs.append("range")
     if any(marker in text for marker in (
         "time of flight",
         "flight time",
+        "flight duration",
+        "duration of flight",
         "total time",
+        "time in air",
+        "total time in air",
+        "airtime",
         "stays in the air",
         "stays in air",
         "time taken",
@@ -1737,7 +1743,7 @@ def _requested_level_ground_outputs(question_text: str) -> list[str]:
         "to reach the ground",
         "hits the ground",
         "hit the ground",
-    )):
+    )) or "t" in output_tokens:
         outputs.append("time_of_flight")
     peak_time = any(marker in text for marker in (
         "maximum height",
@@ -1756,7 +1762,7 @@ def _requested_level_ground_outputs(question_text: str) -> list[str]:
     )
     if peak_time:
         outputs.append("time_to_peak")
-    if any(marker in text for marker in ("maximum height", "max height", "greatest height")):
+    if any(marker in text for marker in ("maximum height", "max height", "greatest height", "peak height", "highest height", "maximum altitude")) or "h" in output_tokens:
         if not peak_time or any(marker in text for marker in ("and maximum height", "and max height", "height and")):
             outputs.append("maximum_height")
     if any(marker in text for marker in ("components", "component", "u_x", "ux", "uₓ", "u_y", "uy", "uᵧ", "horizontal velocity", "vertical velocity")):

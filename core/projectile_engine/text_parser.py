@@ -517,18 +517,22 @@ def _asks_range_and_time(text: str) -> bool:
 def _requested_level_ground_outputs(text: str) -> list[str]:
     if _is_special_non_composite_context(text):
         return []
+    output_tokens = set(re.sub(r"[^a-z0-9]+", " ", text.lower()).split())
     outputs: list[str] = []
     if any(marker in text for marker in ("initial speed", "speed needed", "speed of projection")):
         outputs.append("initial_speed")
     if any(marker in text for marker in ("angle of projection", "launch angle", "find theta", "find the angle", "angle theta")):
         outputs.append("launch_angle")
-    if any(marker in text for marker in ("range", "horizontal distance", "ground distance", "distance covered on ground", "distance on ground", "distance from", "how far")):
+    if any(marker in text for marker in ("range", "horizontal distance", "ground distance", "distance covered", "distance travelled", "distance traveled", "distance covered on ground", "distance on ground", "distance from", "how far")) or "r" in output_tokens:
         outputs.append("range")
     if any(marker in text for marker in (
         "time of flight",
         "flight time",
+        "flight duration",
+        "duration of flight",
         "total time",
         "time in air",
+        "total time in air",
         "airtime",
         "stays in the air",
         "stays in air",
@@ -537,11 +541,11 @@ def _requested_level_ground_outputs(text: str) -> list[str]:
         "to reach the ground",
         "hits the ground",
         "hit the ground",
-    )):
+    )) or "t" in output_tokens:
         outputs.append("time_of_flight")
     if _asks_time_to_peak(text):
         outputs.append("time_to_peak")
-    if any(marker in text for marker in ("maximum height", "max height", "greatest height", "maximum altitude", "altitude gained")):
+    if any(marker in text for marker in ("maximum height", "max height", "greatest height", "peak height", "highest height", "maximum altitude", "altitude gained")) or "h" in output_tokens:
         if not _asks_time_to_peak(text) or any(marker in text for marker in ("and maximum height", "and max height", "height and")):
             outputs.append("maximum_height")
     if _asks_impact_speed(text):
