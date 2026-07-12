@@ -14,6 +14,7 @@ if str(ROOT) not in sys.path:
 from core.projectile_engine.animation_scene import build_animation_scene_spec
 from core.projectile_engine.evaluator import solve_ad_hoc_question
 from core.projectile_engine.scene_contract import validate_animation_scene_spec
+from core.projectile_engine.visual_director import default_visual_director
 from core.projectile_engine.walkthrough import build_solution_walkthrough
 
 
@@ -441,6 +442,21 @@ def main() -> None:
                 failures.append("level maximum range: same-height step does not show delta-y zero")
             if "show_range_marker" in (same_height.get("overlays") or []):
                 failures.append("level maximum range: same-height step should not show range marker")
+        if case["name"] == "level multi quantity scene":
+            storyboard_by_id = {step.get("step_id"): step for step in spec["storyboard"]}
+            root_step = storyboard_by_id.get("solve_4", {})
+            substitution_step = storyboard_by_id.get("solve_5", {})
+            if (root_step.get("beat_visual_spec") or {}).get("beat") != "time_of_flight":
+                failures.append("level multi quantity scene: solve_4 must select the physical flight-time root")
+            if root_step.get("visible_vectors") != ["__none__"]:
+                failures.append("level multi quantity scene: root selection must not show component vectors")
+            if (substitution_step.get("beat_visual_spec") or {}).get("beat") != "component_substitution":
+                failures.append("level multi quantity scene: solve_5 must separately substitute the vertical component")
+            if substitution_step.get("visual_action") != "show_time_component_substitution":
+                failures.append("level multi quantity scene: substitution beat has the wrong visual action")
+            substitution_vectors = set(substitution_step.get("visible_vectors") or [])
+            if substitution_vectors != {"*:v", "*:vy"}:
+                failures.append(f"level multi quantity scene: substitution vectors={sorted(substitution_vectors)}")
         if case["name"] == "projectile and slider incline collision scene":
             walkthrough = build_solution_walkthrough(result)
             beat_ids = [beat.get("step_id") for beat in walkthrough.get("explainer_beats", [])]
@@ -510,6 +526,84 @@ def main() -> None:
         )
         if not any(event["id"] == expected_event for event in spec["events"]):
             failures.append(f"{case['name']}: missing {expected_event}")
+
+    root_result = solve_ad_hoc_question(
+        question_text=(
+            "A stone is projected from level ground with speed 20 m/s at 30 degrees. "
+            "Find its time of flight, maximum height, and horizontal range."
+        ),
+        engine_case=None,
+        options=[],
+        givens=[],
+    )
+    forced_wrong_root = default_visual_director().build_beat_visual_spec(
+        result=root_result,
+        step_id="solve_4",
+        title="Choose the nonzero root",
+        text="The physical flight time is the later root, T = 2u_y/g.",
+        visual_plan={"_visual_director_beat": "initial_components"},
+    )
+    if forced_wrong_root.get("beat") != "time_of_flight":
+        failures.append("level ground nonzero root: deterministic beat must override an incorrect selector guess")
+    if (forced_wrong_root.get("renderer_hints") or {}).get("svg_template") != "level-ground-time-flight":
+        failures.append("level ground nonzero root: wrong SVG template")
+    if forced_wrong_root.get("visible_vectors") not in (None, ["__none__"]):
+        failures.append("level ground nonzero root: component vectors leaked into the root-selection beat")
+
+    walkthrough = build_solution_walkthrough(root_result)
+    beats = walkthrough.get("explainer_beats") or []
+    beats_by_title = {beat.get("title"): beat for beat in beats}
+    root_beat = beats_by_title.get("Choose the nonzero root") or {}
+    component_beat = beats_by_title.get("Substitute the vertical component") or {}
+    range_beat = beats_by_title.get("Convert time into range") or {}
+
+    root_formula_lines = [
+        line
+        for reveal in (root_beat.get("sub_reveals") or [])
+        for line in (reveal.get("formula_lines") or [])
+    ]
+    if any("sin" in line for line in root_formula_lines):
+        failures.append("level ground nonzero root: vertical-component substitution leaked into root selection")
+
+    component_formula_lines = [
+        line
+        for reveal in (component_beat.get("sub_reveals") or [])
+        for line in (reveal.get("formula_lines") or [])
+    ]
+    if component_formula_lines != [
+        "u_y = u sin(theta)",
+        "T = 2u_y/g",
+        "T = 2u sin(theta)/g",
+    ]:
+        failures.append("level ground component substitution: expected a symbolic component bridge only")
+
+    range_formula_lines = [
+        line
+        for reveal in (range_beat.get("sub_reveals") or [])
+        for line in (reveal.get("formula_lines") or [])
+    ]
+    for required in ("a_x = 0", "v_x(t) = u_x", "R = u_x T"):
+        if required not in range_formula_lines:
+            failures.append(f"level ground range derivation: missing {required}")
+    if any(line.lstrip().startswith(("H =", "T =")) for line in range_formula_lines):
+        failures.append("level ground range derivation: unrelated height or time calculation leaked into range beat")
+
+    root_scene = build_animation_scene_spec(result=root_result, question_text=root_result.label, givens=[])
+    storyboard_by_beat = {
+        (step.get("beat_visual_spec") or {}).get("beat"): step
+        for step in (root_scene or {}).get("storyboard", [])
+    }
+    expected_motion = {
+        "time_to_peak": {"mode": "partial", "event": "apex"},
+        "landing_condition": {"mode": "lifecycle", "event": "landing"},
+        "time_of_flight": {"mode": "lifecycle", "event": "landing"},
+        "horizontal_range": {"mode": "lifecycle", "event": "landing"},
+        "final_answer": {"mode": "lifecycle", "event": "landing"},
+    }
+    for beat, expected in expected_motion.items():
+        actual = (storyboard_by_beat.get(beat) or {}).get("motion")
+        if actual != expected:
+            failures.append(f"level ground {beat}: expected motion {expected}, got {actual}")
 
     unsupported = solve_ad_hoc_question(
         question_text="A projectile is launched at 20 m/s toward a vertical screen placed 20 m from launch.",

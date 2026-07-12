@@ -2061,7 +2061,7 @@ def _storyboard_for_scene(scene: dict[str, Any], *, result: EvaluationResult) ->
             "highlight_ids": highlight_ids,
             "camera_target_ids": step.get("camera_target_ids") or (visual_plan or {}).get("show_ids") or [],
             "labels": labels,
-            "motion": (visual_plan or {}).get("motion") or {},
+            "motion": _contract_motion((visual_plan or {}).get("motion") or {}, beat_visual_spec),
             "visual_state": _visual_state_for_visual_plan(visual_plan, visible_vectors, visual_focus, highlight_ids),
             "visual_plan": visual_plan or {},
             "why": plan_step.get("explanation") or _why_for_step(step_id, result),
@@ -2096,7 +2096,7 @@ def _storyboard_for_scene(scene: dict[str, Any], *, result: EvaluationResult) ->
             "highlight_ids": highlight_ids,
             "camera_target_ids": visual_plan.get("show_ids") or ["answer"],
             "labels": labels,
-            "motion": visual_plan.get("motion") or {},
+            "motion": _contract_motion(visual_plan.get("motion") or {}, beat_visual_spec),
             "visual_state": _visual_state_for_visual_plan(
                 visual_plan,
                 visible_vectors,
@@ -2293,7 +2293,7 @@ def _contract_overlays(overlays: list[str], beat_visual_spec: dict[str, Any], vi
     if family == "level_ground_projectile":
         if beat == "setup" or visual_action == "show_launch_setup":
             return ["show_scene"]
-        if beat == "initial_components" or visual_action == "zoom_launch_vector":
+        if beat in {"initial_components", "component_substitution"} or visual_action in {"zoom_launch_vector", "show_time_component_substitution"}:
             return ["show_velocity_components"]
         if beat == "time_to_peak" or visual_action == "show_peak_time":
             return ["show_scene"]
@@ -2316,6 +2316,25 @@ def _contract_overlays(overlays: list[str], beat_visual_spec: dict[str, Any], vi
             required = [item for item in required_by_beat.get(beat, []) if item in allowed_by_beat]
             return list(dict.fromkeys(required + filtered or ["show_scene"]))
     return list(dict.fromkeys(overlays or ["show_scene"]))
+
+
+def _contract_motion(motion: dict[str, Any], beat_visual_spec: dict[str, Any]) -> dict[str, Any]:
+    family = str(beat_visual_spec.get("family") or "")
+    beat = str(beat_visual_spec.get("beat") or "")
+    if family != "level_ground_projectile":
+        return motion
+    semantic_motion = {
+        "setup": {"mode": "static"},
+        "initial_components": {"mode": "static"},
+        "component_substitution": {"mode": "static"},
+        "time_to_peak": {"mode": "partial", "event": "apex"},
+        "maximum_height": {"mode": "partial", "event": "apex"},
+        "landing_condition": {"mode": "lifecycle", "event": "landing"},
+        "time_of_flight": {"mode": "lifecycle", "event": "landing"},
+        "horizontal_range": {"mode": "lifecycle", "event": "landing"},
+        "final_answer": {"mode": "lifecycle", "event": "landing"},
+    }
+    return semantic_motion.get(beat, motion)
 
 
 def _show_ids_for_visual_plan(visual_plan: dict[str, Any] | None) -> list[str]:

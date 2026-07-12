@@ -39,6 +39,7 @@ class LevelGroundProjectilePack(BaseVisualFamilyPack):
                 "time_to_peak",
                 "landing_condition",
                 "time_of_flight",
+                "component_substitution",
                 "maximum_height",
                 "horizontal_range",
                 "final_answer",
@@ -49,6 +50,7 @@ class LevelGroundProjectilePack(BaseVisualFamilyPack):
                 "level-ground-components",
                 "level-ground-time-to-peak",
                 "level-ground-time-flight",
+                "level-ground-time-substitution",
                 "level-ground-apex",
                 "level-ground-range",
                 "level-ground-summary",
@@ -56,6 +58,22 @@ class LevelGroundProjectilePack(BaseVisualFamilyPack):
         }
 
     def infer_beat(self, context: BeatContext) -> str:
+        title = context.title.strip().lower()
+        deterministic_titles = (
+            (("given and what to find",), "setup"),
+            (("resolve the launch velocity", "resolve the vertical component"), "initial_components"),
+            (("why time to peak", "find time to peak", "apply the highest-point condition"), "time_to_peak"),
+            (("apply the landing condition", "use zero vertical displacement"), "landing_condition"),
+            (("factor the landing condition", "choose the nonzero root", "state the final formula"), "time_of_flight"),
+            (("substitute the vertical component",), "component_substitution"),
+            (("maximum height", "find the height"), "maximum_height"),
+            (("convert time into range", "horizontal range"), "horizontal_range"),
+            (("exam takeaway", "final answer"), "final_answer"),
+        )
+        for phrases, beat in deterministic_titles:
+            if any(phrase in title for phrase in phrases):
+                return beat
+
         selected_beat = str(context.visual_plan.get("_visual_director_beat") or "").strip()
         if selected_beat:
             return selected_beat
@@ -78,7 +96,7 @@ class LevelGroundProjectilePack(BaseVisualFamilyPack):
             return "time_to_peak"
         if "r=u_xt" in compact or "r=uₓt" in compact or "quantity:r" in blob or "convert time into range" in blob:
             return "horizontal_range"
-        if "apply the landing condition" in context.title.lower() or "use zero vertical displacement" in context.title.lower():
+        if "apply the landing condition" in title or "use zero vertical displacement" in title:
             return "landing_condition"
         if "t=2u_y/g" in compact or "t=2uᵧ/g" in compact or "nonzero root" in blob or "same-height landing" in blob:
             return "time_of_flight"
@@ -97,6 +115,8 @@ class LevelGroundProjectilePack(BaseVisualFamilyPack):
             return "Use vertical motion and same-height landing to get total flight time."
         if beat == "landing_condition":
             return "Launch and landing are at the same height, so write the vertical displacement equation with Delta y = 0."
+        if beat == "component_substitution":
+            return "Reuse the resolved vertical component u_y = u sin(theta) in the symbolic flight-time formula."
         if beat == "time_to_peak":
             return "Use vertical velocity and the apex condition v_y = 0 to get time to peak."
         if beat == "maximum_height":
@@ -109,7 +129,7 @@ class LevelGroundProjectilePack(BaseVisualFamilyPack):
 
     def must_show_for_beat(self, context: BeatContext, beat: str) -> list[str]:
         items = ["projectile", "level_ground"]
-        if beat in {"setup", "initial_components"}:
+        if beat in {"setup", "initial_components", "component_substitution"}:
             items.extend(["launch_velocity_arrow", "theta_reference"])
         else:
             items.append("trajectory_path")
@@ -121,6 +141,8 @@ class LevelGroundProjectilePack(BaseVisualFamilyPack):
             items.extend(["same_height_landing", "vertical_displacement_equation"])
         if beat == "time_of_flight":
             items.extend(["same_height_landing", "vertical_motion_marker", "time_marker"])
+        if beat == "component_substitution":
+            items.extend(["y_component_arrow", "vertical_component_relation", "flight_time_formula"])
         if beat == "maximum_height":
             items.extend(["apex_marker", "height_marker", "horizontal_velocity_at_apex"])
         if beat == "horizontal_range":
@@ -137,6 +159,8 @@ class LevelGroundProjectilePack(BaseVisualFamilyPack):
             forbidden.extend(["height_marker", "range_marker", "horizontal_velocity_arrow"])
         if beat == "landing_condition":
             forbidden.extend(["solved_flight_time", "launch_angle", "velocity_components", "gravity_arrow"])
+        if beat == "component_substitution":
+            forbidden.extend(["x_component_arrow", "numerical_substitution", "height_marker", "range_marker", "gravity_arrow"])
         if beat in {"setup", "initial_components"}:
             forbidden.extend(["range_formula_first", "impact_velocity_vector"])
         return dedupe_strings(forbidden)
@@ -162,6 +186,14 @@ class LevelGroundProjectilePack(BaseVisualFamilyPack):
             labels.extend([
                 {"target_id": "quantity:T", "text": "T = 2u_y/g", "placement": "below_path", "priority": 1},
                 {"target_id": "quantity:delta_y", "text": "Delta y = 0", "placement": "between_launch_landing", "priority": 2},
+            ])
+        if beat == "component_substitution":
+            labels.extend([
+                {"target_id": "velocity:launch", "text": "u", "placement": "near_arrow_head", "priority": 1},
+                {"target_id": "velocity:y_component", "text": "u_y", "placement": "near_arrow_head", "priority": 1},
+                {"target_id": "quantity:theta", "text": "theta", "placement": "outside_angle_arc", "priority": 2},
+                {"target_id": "equation:vertical_component", "text": "u_y = u sin(theta)", "placement": "below_vector", "priority": 1},
+                {"target_id": "equation:flight_time_substitution", "text": "T = 2u sin(theta)/g", "placement": "formula_lane", "priority": 1},
             ])
         if beat == "time_to_peak":
             labels.extend([
@@ -189,6 +221,7 @@ class LevelGroundProjectilePack(BaseVisualFamilyPack):
             "time_to_peak": "level-ground-time-to-peak",
             "landing_condition": "level-ground-landing-condition",
             "time_of_flight": "level-ground-time-flight",
+            "component_substitution": "level-ground-time-substitution",
             "maximum_height": "level-ground-apex",
             "horizontal_range": "level-ground-range",
             "final_answer": "level-ground-summary",
@@ -202,7 +235,7 @@ class LevelGroundProjectilePack(BaseVisualFamilyPack):
 
     def render_primitives_for_beat(self, context: BeatContext, beat: str) -> list[dict[str, Any]]:
         primitives = [{"type": "trajectory", "target_id": "trajectory:path", "required": True}]
-        if beat in {"setup", "initial_components"}:
+        if beat in {"setup", "initial_components", "component_substitution"}:
             primitives.extend([
                 {"type": "vector", "target_id": "velocity:launch", "required": True},
                 {"type": "angle_arc", "target_id": "quantity:theta", "required": True},
@@ -212,6 +245,8 @@ class LevelGroundProjectilePack(BaseVisualFamilyPack):
                 {"type": "vector", "target_id": "velocity:x_component", "required": True},
                 {"type": "vector", "target_id": "velocity:y_component", "required": True},
             ])
+        if beat == "component_substitution":
+            primitives.append({"type": "vector", "target_id": "velocity:y_component", "required": True})
         if beat in {"landing_condition", "time_of_flight"}:
             primitives.append({"type": "same_height_marker", "target_id": "quantity:delta_y", "required": True})
         if beat == "time_to_peak":
@@ -239,6 +274,8 @@ class LevelGroundProjectilePack(BaseVisualFamilyPack):
             return ["*:vy", "*:a"]
         if beat in {"landing_condition", "time_of_flight"}:
             return ["__none__"]
+        if beat == "component_substitution":
+            return ["*:v", "*:vy"]
         vectors = [str(item) for item in existing if str(item) and str(item) != "__none__"]
         if beat in {"horizontal_range", "maximum_height"}:
             vectors.append("*:vx")
@@ -261,6 +298,8 @@ class LevelGroundProjectilePack(BaseVisualFamilyPack):
             ids = ["projectile", "level_ground", "point:launch", "point:landing", "quantity:delta_y", "equation:vertical_displacement", "trajectory:path"]
         elif beat == "time_of_flight":
             ids = ["projectile", "level_ground", "point:launch", "point:landing", "quantity:T", "quantity:delta_y", "trajectory:path"]
+        elif beat == "component_substitution":
+            ids = ["projectile", "level_ground", "point:launch", "velocity:launch", "quantity:theta", "quantity:uy", "vector:uy", "equation:vertical_component", "equation:flight_time_substitution"]
         elif beat == "time_to_peak":
             ids = ["projectile", "level_ground", "point:launch", "event:apex", "quantity:t_peak", "quantity:uy", "vector:uy", "vector:g", "trajectory:path"]
         elif beat == "maximum_height":
@@ -279,6 +318,8 @@ class LevelGroundProjectilePack(BaseVisualFamilyPack):
             return "zoom_launch_vector"
         if beat == "time_of_flight":
             return "show_flight_time_root"
+        if beat == "component_substitution":
+            return "show_time_component_substitution"
         if beat == "landing_condition":
             return "show_landing_condition"
         if beat == "time_to_peak":

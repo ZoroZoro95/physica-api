@@ -379,7 +379,8 @@ PLAN_BLUEPRINTS: dict[str, dict[str, object]] = {
         "equations": [
             "u_x = u cos(theta), u_y = u sin(theta)",
             "0 = u_y T - (1/2)gT^2",
-            "T = 2u_y/g = 2u sin(theta)/g",
+            "T = 2u_y/g",
+            "u_y = u sin(theta), so T = 2u sin(theta)/g",
             "R = u_x T",
             "R = u^2 sin(2theta)/g",
         ],
@@ -400,7 +401,8 @@ PLAN_BLUEPRINTS: dict[str, dict[str, object]] = {
             "u_x = u cos(theta), u_y = u sin(theta)",
             "v_y(t) = u_y - gt; at peak v_y = 0, so 0 = u_y - g t_peak and t_peak = u_y/g",
             "0 = u_y T - (1/2)gT^2",
-            "T = 2u_y/g = 2u sin(theta)/g",
+            "T = 2u_y/g",
+            "u_y = u sin(theta), so T = 2u sin(theta)/g",
             "H = u_y^2/(2g)",
             "R = u_x T",
             "R = u^2 sin(2theta)/g",
@@ -815,6 +817,8 @@ def _blueprint_step_title(engine_case: str, index: int, step_count: int, equatio
         return "Pick the first direct-hit step"
     if "u_x" in lowered and "u_y" in lowered:
         return "Resolve the launch velocity"
+    if lowered.startswith("u_y") and "t =" in lowered:
+        return "Substitute the vertical component"
     if lowered.startswith("u_y"):
         return "Resolve the vertical component"
     if "t_peak" in lowered and "v_y" in lowered:
@@ -925,6 +929,8 @@ def _blueprint_step_explanation(engine_case: str, index: int, step_count: int, e
         return "The nth step is n step-heights below the top. A direct strike starts when the vertical drop reaches at least that much."
     if "u_x" in lowered and "u_y" in lowered:
         return "Resolve the launch velocity into horizontal and vertical components. Horizontal motion decides range, while vertical motion decides flight time."
+    if lowered.startswith("u_y") and "t =" in lowered:
+        return "Reuse u_y = u sin(theta) from the component-resolution beat, then substitute it into the symbolic flight-time relation."
     if lowered.startswith("u_y"):
         return "Only the vertical component controls upward slowing, so use u_y = u sin(theta)."
     if "t_peak" in lowered and ("v_y" in lowered or "0 = u_y" in lowered):
@@ -1081,4 +1087,19 @@ def _blueprint_substitution(equation: str, substitution: str) -> str:
         return ""
     if equation and cleaned.lower().startswith(("for ", "since ", "because ")):
         return ""
+    equation_quantity = _assigned_output_quantity(equation)
+    substitution_quantity = _assigned_output_quantity(cleaned)
+    if equation_quantity and substitution_quantity and equation_quantity != substitution_quantity:
+        return ""
     return cleaned
+
+
+def _assigned_output_quantity(text: str) -> str:
+    normalized = text.lower().replace(" ", "").replace("_max", "")
+    matches = {
+        "range": any(token in normalized for token in ("r=", "range=")),
+        "height": any(token in normalized for token in ("h=", "height=")),
+        "time": any(token in normalized for token in ("t=", "time=")),
+    }
+    selected = [key for key, present in matches.items() if present]
+    return selected[0] if len(selected) == 1 else ""
