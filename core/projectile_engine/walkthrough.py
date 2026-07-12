@@ -1717,6 +1717,10 @@ def _formula_sub_reveals(equation: str, substitution: str, result: str, focus_id
         return _height_launch_positive_root_sub_reveals(equation, substitution, result, focus_ids)
     if _is_nonzero_time_root_equation(equation):
         return _nonzero_time_root_sub_reveals(equation, substitution, result, focus_ids)
+    if _is_vertical_component_time_substitution(equation):
+        return _vertical_component_time_sub_reveals(focus_ids)
+    if _is_horizontal_range_equation(equation):
+        return _horizontal_range_sub_reveals(focus_ids)
     parent = _parent_equation_for(equation)
     reveals: list[dict] = []
     if parent:
@@ -1939,7 +1943,7 @@ def _nonzero_time_root_sub_reveals(equation: str, substitution: str, result: str
             focus_ids,
         ),
     ]
-    if final_lines:
+    if final_lines and "sin" in _compact_equation(equation):
         reveals.append(_sub_reveal(
             "replace_vertical_component",
             "If the launch angle is measured from the horizontal, the vertical component is u_y = u sin(theta). Now we replace u_y with that component.",
@@ -1967,6 +1971,50 @@ def _nonzero_time_root_sub_reveals(equation: str, substitution: str, result: str
             ["answer", *focus_ids[:2]],
         ))
     return reveals
+
+
+def _vertical_component_time_sub_reveals(focus_ids: list[str]) -> list[dict]:
+    component_ids = list(dict.fromkeys([*focus_ids, "velocity:launch", "vector:uy", "quantity:uy", "quantity:theta"]))
+    return [
+        _sub_reveal(
+            "recall_vertical_component",
+            "From the earlier vector-resolution beat, the component opposite theta is u_y = u sin(theta).",
+            "Show the launch vector and its vertical projection only.",
+            ["u_y = u sin(theta)"],
+            component_ids,
+            ["vector:uy", "quantity:uy"],
+        ),
+        _sub_reveal(
+            "substitute_vertical_component",
+            "Substitute that component into T = 2u_y/g. This converts the component form into the launch-speed form.",
+            "Keep the vertical component visible while the symbolic formula changes.",
+            ["T = 2u_y/g", "T = 2u sin(theta)/g"],
+            component_ids,
+            ["equation:flight_time_substitution", "quantity:T"],
+        ),
+    ]
+
+
+def _horizontal_range_sub_reveals(focus_ids: list[str]) -> list[dict]:
+    range_ids = list(dict.fromkeys([*focus_ids, "vector:ux", "quantity:ux", "quantity:R", "point:landing"]))
+    return [
+        _sub_reveal(
+            "zero_horizontal_acceleration",
+            "Gravity has no horizontal component, so a_x = 0 and the horizontal velocity does not change.",
+            "Keep the horizontal velocity arrow unchanged along the path.",
+            ["a_x = 0", "v_x(t) = u_x"],
+            range_ids,
+            ["vector:ux", "quantity:ux"],
+        ),
+        _sub_reveal(
+            "constant_speed_distance",
+            "Horizontal displacement equals constant horizontal speed multiplied by the total flight time. Therefore the landing displacement is R = u_x T.",
+            "Connect the unchanged horizontal velocity to the launch-to-landing range marker.",
+            ["R = v_x T", "v_x = u_x", "R = u_x T"],
+            range_ids,
+            ["quantity:R", "point:landing"],
+        ),
+    ]
 
 
 def _height_launch_positive_root_sub_reveals(equation: str, substitution: str, result: str, focus_ids: list[str]) -> list[dict]:
@@ -2027,6 +2075,16 @@ def _is_nonzero_time_root_equation(equation: str) -> bool:
     if not lowered.startswith("t="):
         return False
     return any(token in lowered for token in ["2u_y/g", "2uy/g", "2usin", "2u*sin"])
+
+
+def _is_vertical_component_time_substitution(equation: str) -> bool:
+    lowered = _compact_equation(equation)
+    return lowered.startswith(("u_y=", "uy=", "uᵧ=")) and "sin" in lowered and "t=" in lowered
+
+
+def _is_horizontal_range_equation(equation: str) -> bool:
+    lowered = _compact_equation(equation)
+    return lowered.startswith("r=") and any(token in lowered for token in ("u_xt", "uₓt", "uxt"))
 
 
 def _is_height_launch_positive_root_equation(equation: str) -> bool:
