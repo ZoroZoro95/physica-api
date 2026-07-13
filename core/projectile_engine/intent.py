@@ -493,7 +493,10 @@ def _requested_level_ground_output_count(text: str) -> int:
     if _is_special_non_composite_context(text):
         return 0
     outputs: list[str] = []
-    if any(marker in text for marker in ("initial speed", "speed needed", "speed of projection")):
+    if any(marker in text for marker in (
+        "find initial speed", "determine initial speed", "calculate initial speed",
+        "what initial speed", "speed needed", "required speed", "minimum speed",
+    )):
         outputs.append("initial_speed")
     if any(marker in text for marker in ("angle of projection", "launch angle", "find theta", "find the angle", "angle theta")):
         outputs.append("launch_angle")
@@ -504,6 +507,9 @@ def _requested_level_ground_output_count(text: str) -> int:
         "flight time",
         "total time",
         "time in air",
+        "airborne",
+        "airborne duration",
+        "total airborne duration",
         "airtime",
         "stays in the air",
         "stays in air",
@@ -531,7 +537,7 @@ def _requested_level_ground_output_count(text: str) -> int:
     )
     if peak_time:
         outputs.append("time_to_peak")
-    if any(marker in text for marker in ("maximum height", "max height", "greatest height", "maximum altitude", "altitude gained")):
+    if any(marker in text for marker in ("maximum height", "max height", "greatest height", "greatest vertical rise", "maximum vertical rise", "how high", "maximum altitude", "altitude gained")):
         if not peak_time or any(marker in text for marker in ("and maximum height", "and max height", "height and")):
             outputs.append("maximum_height")
     if _asks_impact_speed(text):

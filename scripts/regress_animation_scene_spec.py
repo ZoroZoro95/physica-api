@@ -588,6 +588,42 @@ def main() -> None:
     if any(line.lstrip().startswith(("H =", "T =")) for line in range_formula_lines):
         failures.append("level ground range derivation: unrelated height or time calculation leaked into range beat")
 
+    synonym_result = solve_ad_hoc_question(
+        question_text=(
+            "A projectile leaves level ground with an initial speed of 20 m/s at 30 degrees above the horizontal. "
+            "Determine its greatest vertical rise, total airborne duration, and horizontal distance before it "
+            "returns to the launch level. Take g = 10 m/s^2."
+        ),
+        engine_case=None,
+        options=[],
+        givens=[],
+    )
+    synonym_answer = synonym_result.computed_text or ""
+    if synonym_result.engine_case != "level_ground_multi_quantity":
+        failures.append("level ground synonym variant: wrong engine case")
+    for quantity in ("T = 2 s", "H = 5 m", "R = 34.641 m"):
+        if quantity not in synonym_answer:
+            failures.append(f"level ground synonym variant: missing {quantity}")
+    if "u =" in synonym_answer:
+        failures.append("level ground synonym variant: treated the given initial speed as a requested output")
+
+    conversational_result = solve_ad_hoc_question(
+        question_text=(
+            "A ball is fired from level ground at 30 m/s, 60 degrees above the horizontal. "
+            "How long is it airborne, how high does it rise, and how far from the launch point does it land? "
+            "Take g = 10 m/s^2."
+        ),
+        engine_case=None,
+        options=[],
+        givens=[],
+    )
+    conversational_answer = conversational_result.computed_text or ""
+    if conversational_result.engine_case != "level_ground_multi_quantity":
+        failures.append("level ground conversational variant: wrong engine case")
+    for quantity in ("T = 5.19615 s", "H = 33.75 m", "R = 77.9423 m"):
+        if quantity not in conversational_answer:
+            failures.append(f"level ground conversational variant: missing {quantity}")
+
     root_scene = build_animation_scene_spec(result=root_result, question_text=root_result.label, givens=[])
     storyboard_by_beat = {
         (step.get("beat_visual_spec") or {}).get("beat"): step

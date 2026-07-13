@@ -364,7 +364,10 @@ def _requested_level_ground_outputs(text: str) -> list[str]:
         return []
     output_tokens = set(re.sub(r"[^a-z0-9]+", " ", text.lower()).split())
     outputs: list[str] = []
-    if _contains_any(text, ["initial speed", "speed needed", "speed of projection"]):
+    if _contains_any(text, [
+        "find initial speed", "determine initial speed", "calculate initial speed",
+        "what initial speed", "speed needed", "required speed", "minimum speed",
+    ]):
         outputs.append("initial_speed")
     if _contains_any(text, ["angle of projection", "launch angle", "find theta", "find the angle", "angle theta"]):
         outputs.append("launch_angle")
@@ -375,6 +378,9 @@ def _requested_level_ground_outputs(text: str) -> list[str]:
         "flight time",
         "flight duration",
         "duration of flight",
+        "airborne duration",
+        "total airborne duration",
+        "airborne",
         "total time",
         "time in air",
         "total time in air",
@@ -388,7 +394,7 @@ def _requested_level_ground_outputs(text: str) -> list[str]:
         outputs.append("time_of_flight")
     if _asks_time_to_peak(text):
         outputs.append("time_to_peak")
-    if _contains_any(text, ["maximum height", "max height", "greatest height", "peak height", "highest height", "maximum altitude"]) or "h" in output_tokens:
+    if _contains_any(text, ["maximum height", "max height", "greatest height", "greatest vertical rise", "maximum vertical rise", "how high", "peak height", "highest height", "maximum altitude"]) or "h" in output_tokens:
         if not _asks_time_to_peak(text) or _contains_any(text, ["and maximum height", "and max height", "height and"]):
             outputs.append("maximum_height")
     if _asks_impact_speed(text):
