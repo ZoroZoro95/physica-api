@@ -111,6 +111,16 @@ def validate_animation_scene_spec(scene: dict[str, Any]) -> list[str]:
             errors.append(f"storyboard step {step_id or '?'} needs overlays")
         if not str(step.get("why") or "").strip():
             errors.append(f"storyboard step {step_id or '?'} needs why")
+        visual_plan = step.get("visual_plan")
+        if isinstance(visual_plan, dict):
+            for key in ("motion", "overlays", "visible_vectors", "highlight_ids", "labels", "visual_state"):
+                if visual_plan.get(key) != step.get(key):
+                    errors.append(f"storyboard step {step_id or '?'} visual_plan disagrees on {key}")
+            if set(visual_plan.get("show_ids") or []) & set(visual_plan.get("hide_ids") or []):
+                errors.append(f"storyboard step {step_id or '?'} shows and hides the same object")
+        state = step.get("visual_state")
+        if isinstance(state, dict) and state.get("visible_vectors") != step.get("visible_vectors"):
+            errors.append(f"storyboard step {step_id or '?'} visual_state disagrees on visible_vectors")
         beat_visual_spec = step.get("beat_visual_spec")
         if not isinstance(beat_visual_spec, dict):
             errors.append(f"storyboard step {step_id or '?'} needs beat_visual_spec")

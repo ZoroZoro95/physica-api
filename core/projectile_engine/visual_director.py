@@ -5,6 +5,7 @@ from typing import Any
 
 from .models import EvaluationResult
 from .visuals.registry import default_visual_family_packs
+from .visuals.playback import beat_motion, beat_overlays
 from .visuals.selector import select_visual_family_pack
 from .visuals.types import BeatContext, VisualFamilyPack
 from .visuals.utils import dedupe_labels, dedupe_strings
@@ -70,7 +71,13 @@ class VisualDirector:
         plan["highlight_ids"] = self.visible_ids(plan.get("highlight_ids") or plan.get("show_ids") or [], spec)
         plan["visible_vectors"] = self.visible_vectors(plan.get("visible_vectors") or [], spec)
         plan["labels"] = self.merge_labels(plan.get("labels") or [], spec.get("labels") or [])
-        plan["hide_ids"] = dedupe_strings([*(plan.get("hide_ids") or []), *(spec.get("must_not_show") or [])])
+        visible = set(plan["show_ids"]) | set(plan["highlight_ids"])
+        plan["hide_ids"] = [
+            item for item in dedupe_strings([*(plan.get("hide_ids") or []), *(spec.get("must_not_show") or [])])
+            if item not in visible
+        ]
+        plan["motion"] = beat_motion(plan.get("motion") or {}, spec)
+        plan["overlays"] = beat_overlays(plan.get("overlays") or [], spec, plan["visual_action"])
         plan["visual_state"] = self.visual_state_for_plan(plan)
         return plan
 

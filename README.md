@@ -10,14 +10,19 @@ cp .env.example .env
 uvicorn core.main:app --host 0.0.0.0 --port 8000
 ```
 
-The app requires at least one provider key, `GROQ_API_KEY`, `GOOGLE_API_KEY`, or `GEMINI_API_KEY`, before `core.main` can import successfully.
+Deterministic text solving works without a provider key. Image extraction and tutor
+endpoints require `GROQ_API_KEY`, `GOOGLE_API_KEY`, or `GEMINI_API_KEY`.
 
 ## Beta Checks
 
 ```bash
 python3 scripts/deployment_gate.py --skip-frontend --skip-visual-benchmark
 python3 scripts/regress_feedback_loop_db.py
+python3 scripts/regress_animation_scene_spec.py
+python3 scripts/regress_walkthrough_sync_audit.py --frontend ../physica-web
 ```
+
+Use `--frontend` to point the sync audit at your actual split frontend checkout.
 
 For the full monorepo gate, run `python3 scripts/deployment_gate.py` from the original monorepo before splitting.
 

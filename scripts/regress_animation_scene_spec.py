@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import math
 import sys
+from copy import deepcopy
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -319,6 +320,19 @@ def main() -> None:
             failures.append(f"{case['name']}: missing camera bookmarks")
         if not spec.get("storyboard"):
             failures.append(f"{case['name']}: missing storyboard")
+        for beat in spec.get("storyboard") or []:
+            plan = beat.get("visual_plan") or {}
+            for key in ("motion", "overlays", "visible_vectors", "highlight_ids", "labels", "visual_state"):
+                if plan.get(key) != beat.get(key):
+                    failures.append(f"{case['name']} {beat['step_id']}: plan/storyboard disagree on {key}")
+            state = beat.get("visual_state") or {}
+            if state.get("visible_vectors") != beat.get("visible_vectors"):
+                failures.append(f"{case['name']} {beat['step_id']}: state overrides finalized vectors")
+            if set(plan.get("show_ids") or []) & set(plan.get("hide_ids") or []):
+                failures.append(f"{case['name']} {beat['step_id']}: same object both shown and hidden")
+            label_ids = {label["target_id"] for label in beat.get("labels") or []}
+            if label_ids != set(state.get("label_ids") or []):
+                failures.append(f"{case['name']} {beat['step_id']}: labels missing from visual state")
         quantity = case.get("quantity")
         if quantity:
             key, expected = quantity
@@ -632,14 +646,25 @@ def main() -> None:
     expected_motion = {
         "time_to_peak": {"mode": "partial", "event": "apex"},
         "landing_condition": {"mode": "lifecycle", "event": "landing"},
-        "time_of_flight": {"mode": "lifecycle", "event": "landing"},
-        "horizontal_range": {"mode": "lifecycle", "event": "landing"},
+        "time_of_flight": {"mode": "freeze", "event": "landing"},
+        "horizontal_range": {"mode": "freeze", "event": "landing"},
         "final_answer": {"mode": "lifecycle", "event": "landing"},
     }
     for beat, expected in expected_motion.items():
         actual = (storyboard_by_beat.get(beat) or {}).get("motion")
         if actual != expected:
             failures.append(f"level ground {beat}: expected motion {expected}, got {actual}")
+
+    if root_scene:
+        broken = deepcopy(root_scene)
+        broken["storyboard"][0]["visual_plan"]["motion"] = {"mode": "lifecycle"}
+        if not any("visual_plan disagrees on motion" in error for error in validate_animation_scene_spec(broken)):
+            failures.append("scene validator accepted contradictory motion instructions")
+        broken = deepcopy(root_scene)
+        first = broken["storyboard"][0]
+        first["visual_plan"]["hide_ids"] = list(first["visual_plan"]["show_ids"])
+        if not any("shows and hides the same object" in error for error in validate_animation_scene_spec(broken)):
+            failures.append("scene validator accepted contradictory visibility instructions")
 
     unsupported = solve_ad_hoc_question(
         question_text="A projectile is launched at 20 m/s toward a vertical screen placed 20 m from launch.",
