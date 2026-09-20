@@ -8,6 +8,7 @@ solver cannot produce an auditable beat/render contract.
 
 from __future__ import annotations
 
+import argparse
 import sys
 from pathlib import Path
 
@@ -38,6 +39,10 @@ CASES = [
 
 
 def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--frontend", type=Path, default=ROOT / "frontend", help="Frontend root, including a separate split checkout")
+    args = parser.parse_args()
+    frontend = args.frontend.resolve()
     failures: list[str] = []
     for case in CASES:
         result = solve_ad_hoc_question(
@@ -70,15 +75,18 @@ def main() -> None:
             failures.append(f"{case['name']}: scene has no storyboard")
 
     source_checks = [
-        (ROOT / "frontend/components/TeachingBoard2D.tsx", "data-audit-surface=\"teaching-board-2d\""),
-        (ROOT / "frontend/components/TeachingBoard2D.tsx", "data-audit-vector-id"),
-        (ROOT / "frontend/components/TeachingBoard2D.tsx", "data-audit-trajectory-id"),
-        (ROOT / "frontend/components/AnimationScene3D.tsx", "data-audit-surface=\"animation-scene-3d\""),
+        (frontend / "components/TeachingBoard2D.tsx", "data-audit-surface=\"teaching-board-2d\""),
+        (frontend / "components/TeachingBoard2D.tsx", "data-audit-vector-id"),
+        (frontend / "components/TeachingBoard2D.tsx", "data-audit-trajectory-id"),
+        (frontend / "components/AnimationScene3D.tsx", "data-audit-surface=\"animation-scene-3d\""),
     ]
     for path, needle in source_checks:
+        if not path.is_file():
+            failures.append(f"Missing frontend file {path}; set --frontend to the split frontend checkout")
+            continue
         text = path.read_text(encoding="utf-8")
         if needle not in text:
-            failures.append(f"{path.relative_to(ROOT)}: missing render probe hook {needle!r}")
+            failures.append(f"{path.relative_to(frontend)}: missing render probe hook {needle!r}")
 
     if failures:
         print("Walkthrough sync audit regressions failed:")

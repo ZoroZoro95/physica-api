@@ -9,6 +9,7 @@ from .mapper import map_projectile_problem
 from .models import EvaluationResult
 from .scene_contract import validate_animation_scene_spec
 from .walkthrough import build_solution_walkthrough
+from .visuals.playback import beat_motion, beat_overlays
 from .visual_contract import (
     build_beat_visual_spec,
     contract_visible_ids,
@@ -1801,6 +1802,9 @@ def _attach_storyboard_contract(scene: dict[str, Any], *, result: EvaluationResu
     scene["camera_bookmarks"] = _camera_bookmarks_for_scene(scene)
     scene["beat_visual_plans"] = _beat_visual_plans(result)
     scene["storyboard"] = _storyboard_for_scene(scene, result=result)
+    scene["beat_visual_plans"] = {
+        step["step_id"]: step["visual_plan"] for step in scene["storyboard"]
+    }
     scene["schema_version"] = max(int(scene.get("schema_version") or 1), 2)
     return scene
 
@@ -2187,11 +2191,35 @@ def _normalize_storyboard_step_for_scene(step: dict[str, Any], scene: dict[str, 
     for key in ("visual_focus", "highlight_ids", "camera_target_ids"):
         normalized[key] = _deduped_ids(alias for item in normalized.get(key) or [] for alias in normalize_id(item))
 
+    normalized["labels"] = [
+        {**label, "target_id": target}
+        for label in normalized.get("labels") or []
+        for target in normalize_id(label.get("target_id"))
+    ]
     visual_state = dict(normalized.get("visual_state") or {})
-    for key in ("visible_ids", "highlight_ids", "dimmed_ids"):
-        visual_state[key] = _deduped_ids(alias for item in visual_state.get(key) or [] for alias in normalize_id(item))
-    visual_state["label_ids"] = _deduped_ids(alias for item in visual_state.get("label_ids") or [] for alias in normalize_id(item))
+    visual_state.update({
+        "visible_ids": normalized["visual_focus"],
+        "visible_vectors": normalized.get("visible_vectors") or ["__none__"],
+        "highlight_ids": normalized["highlight_ids"],
+        "label_ids": _deduped_ids(label["target_id"] for label in normalized["labels"]),
+    })
+    visual_state["dimmed_ids"] = _deduped_ids(
+        alias for item in visual_state.get("dimmed_ids") or [] for alias in normalize_id(item)
+        if alias not in normalized["highlight_ids"]
+    )
     normalized["visual_state"] = visual_state
+    # Every consumer receives the finalized instructions, including scene aliases.
+    plan = dict(normalized.get("visual_plan") or {})
+    for key in ("visual_action", "camera", "visible_vectors", "overlays", "highlight_ids", "labels", "motion", "visual_state"):
+        if key in normalized:
+            plan[key] = normalized[key]
+    plan["show_ids"] = normalized["visual_focus"]
+    visible = set(plan["show_ids"]) | set(plan["highlight_ids"])
+    plan["hide_ids"] = _deduped_ids(
+        alias for item in plan.get("hide_ids") or [] for alias in normalize_id(item)
+        if alias not in visible
+    )
+    normalized["visual_plan"] = plan
     return normalized
 
 
@@ -2288,53 +2316,11 @@ def _overlays_for_visual_plan(visual_plan: dict[str, Any] | None) -> list[str]:
 
 
 def _contract_overlays(overlays: list[str], beat_visual_spec: dict[str, Any], visual_action: str) -> list[str]:
-    family = str(beat_visual_spec.get("family") or "")
-    beat = str(beat_visual_spec.get("beat") or "")
-    if family == "level_ground_projectile":
-        if beat == "setup" or visual_action == "show_launch_setup":
-            return ["show_scene"]
-        if beat in {"initial_components", "component_substitution"} or visual_action in {"zoom_launch_vector", "show_time_component_substitution"}:
-            return ["show_velocity_components"]
-        if beat == "time_to_peak" or visual_action == "show_peak_time":
-            return ["show_scene"]
-        allowed_by_beat = {
-            "landing_condition": {"show_trajectory", "show_same_height", "show_motion_progress"},
-            "time_of_flight": {"show_trajectory", "show_same_height", "show_timer"},
-            "maximum_height": {"show_trajectory", "show_height_marker", "show_motion_progress"},
-            "horizontal_range": {"show_trajectory", "show_range_marker", "show_motion_progress"},
-            "final_answer": {"show_trajectory", "show_final_answer", "show_range_marker", "show_height_marker", "show_timer"},
-        }.get(beat)
-        if allowed_by_beat:
-            filtered = [item for item in overlays if item in allowed_by_beat]
-            required_by_beat = {
-                "landing_condition": ["show_trajectory", "show_same_height"],
-                "time_of_flight": ["show_trajectory", "show_same_height", "show_timer"],
-                "maximum_height": ["show_trajectory", "show_height_marker"],
-                "horizontal_range": ["show_trajectory", "show_range_marker"],
-                "final_answer": ["show_trajectory"],
-            }
-            required = [item for item in required_by_beat.get(beat, []) if item in allowed_by_beat]
-            return list(dict.fromkeys(required + filtered or ["show_scene"]))
-    return list(dict.fromkeys(overlays or ["show_scene"]))
+    return beat_overlays(overlays, beat_visual_spec, visual_action)
 
 
 def _contract_motion(motion: dict[str, Any], beat_visual_spec: dict[str, Any]) -> dict[str, Any]:
-    family = str(beat_visual_spec.get("family") or "")
-    beat = str(beat_visual_spec.get("beat") or "")
-    if family != "level_ground_projectile":
-        return motion
-    semantic_motion = {
-        "setup": {"mode": "static"},
-        "initial_components": {"mode": "static"},
-        "component_substitution": {"mode": "static"},
-        "time_to_peak": {"mode": "partial", "event": "apex"},
-        "maximum_height": {"mode": "partial", "event": "apex"},
-        "landing_condition": {"mode": "lifecycle", "event": "landing"},
-        "time_of_flight": {"mode": "lifecycle", "event": "landing"},
-        "horizontal_range": {"mode": "lifecycle", "event": "landing"},
-        "final_answer": {"mode": "lifecycle", "event": "landing"},
-    }
-    return semantic_motion.get(beat, motion)
+    return beat_motion(motion, beat_visual_spec)
 
 
 def _show_ids_for_visual_plan(visual_plan: dict[str, Any] | None) -> list[str]:
