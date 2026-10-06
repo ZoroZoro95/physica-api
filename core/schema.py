@@ -254,6 +254,13 @@ class SolveQuestionRequest(BaseModel):
     requested_quantity: Optional[str] = None
     diagram: Optional[DiagramExtraction] = None
 
+    @property
+    def requires_diagram_validation(self) -> bool:
+        # Text review sends an explicit empty diagram, not extracted geometry.
+        return bool(self.diagram and (
+            self.diagram.present or self.diagram.entities or self.diagram.type != "none"
+        ))
+
 
 class WalkthroughStep(BaseModel):
     id: str

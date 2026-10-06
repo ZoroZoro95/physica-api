@@ -1001,6 +1001,8 @@ def _build_staircase_scene(
             "R": {"value": impact["x"], "unit": "m", "label": "x"},
             "H": {"value": launch_height, "unit": "m", "label": "height"},
             "step": {"value": float(struck_step), "unit": "", "label": "step"},
+            "step_width": {"value": step_width, "unit": "m", "label": "w"},
+            "step_height": {"value": step_height, "unit": "m", "label": "h"},
         },
         "events": [
             {"id": "event:launch", "time": 0.0, "point": "launch", "label": "horizontal launch"},

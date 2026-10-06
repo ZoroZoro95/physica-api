@@ -174,7 +174,7 @@ async def solve_question(req: SolveQuestionRequest, user: AuthUser | None = Depe
         givens=req.givens,
         requested_quantity=req.requested_quantity,
         diagram=req.diagram,
-        require_diagram_validation=req.diagram is not None,
+        require_diagram_validation=req.requires_diagram_validation,
     )
     response = SolveQuestionResponse(
         debug_report_id=req.debug_report_id,
@@ -223,7 +223,7 @@ async def audit_walkthrough_sync_endpoint(req: SolveQuestionRequest):
         givens=req.givens,
         requested_quantity=req.requested_quantity,
         diagram=req.diagram,
-        require_diagram_validation=req.diagram is not None,
+        require_diagram_validation=req.requires_diagram_validation,
     )
     walkthrough = build_solution_walkthrough(result) if result.status == "passed" else None
     animation_scene_spec = build_animation_scene_spec(
@@ -312,7 +312,7 @@ async def retry_feedback_questions(
             givens=req.givens,
             requested_quantity=req.requested_quantity,
             diagram=req.diagram,
-            require_diagram_validation=req.diagram is not None,
+            require_diagram_validation=req.requires_diagram_validation,
         )
         response = SolveQuestionResponse(
             debug_report_id=req.debug_report_id,
