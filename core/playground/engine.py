@@ -1,0 +1,188 @@
+"""Analytical point-particle motion and finite surface contacts in the XY plane."""
+from __future__ import annotations
+
+import math
+
+import numpy as np
+
+from .models import (
+    AddParticle, AddSurface, AddWedge, ApplyRequest, Contact, Ground, Particle, Point,
+    Sample, Scene, SetAnnotation, SetLaunch, SimulateRequest, Simulation, Surface, Vector, Wedge,
+)
+
+EPS = 1e-8
+
+
+def polygon(surface: Surface) -> list[Point]:
+    if isinstance(surface, Ground):
+        return [Point(x=surface.x_min, y=surface.y), Point(x=surface.x_max, y=surface.y)]
+    x, y, w, h = surface.origin.x, surface.origin.y, surface.width, surface.height
+    # Counterclockwise triangle; top endpoints are always ordered left to right.
+    if surface.rising:
+        return [Point(x=x, y=y), Point(x=x+w, y=y), Point(x=x+w, y=y+h)]
+    return [Point(x=x, y=y), Point(x=x+w, y=y), Point(x=x, y=y+h)]
+
+
+def top(surface: Surface) -> tuple[Point, Point]:
+    vertices = polygon(surface)
+    if isinstance(surface, Ground):
+        return vertices[0], vertices[1]
+    return (vertices[0], vertices[2]) if surface.rising else (vertices[2], vertices[1])
+
+
+def find(items, object_id):
+    for item in items:
+        if item.id == object_id:
+            return item
+    raise ValueError(f"Unknown object: {object_id}")
+
+
+def apply(request: ApplyRequest) -> Scene:
+    scene = request.scene.model_copy(deep=True)
+    for command in request.commands:
+        if isinstance(command, AddSurface):
+            scene.surfaces.append(command.surface.model_copy(deep=True))
+        elif isinstance(command, AddWedge):
+            scene.surfaces.append(Wedge(
+                id=command.id, origin=command.origin, width=command.width, depth=command.depth,
+                height=command.width*abs(math.tan(math.radians(command.angle_deg))),
+                rising=command.angle_deg > 0,
+            ))
+        elif isinstance(command, AddParticle):
+            position = command.position
+            if command.on_surface:
+                a, b = top(find(scene.surfaces, command.on_surface.surface_id))
+                f = command.on_surface.fraction
+                position = Point(x=a.x + f*(b.x-a.x), y=a.y + f*(b.y-a.y))
+            scene.particles.append(Particle(id=command.id, position=position))
+        elif isinstance(command, SetLaunch):
+            particle = find(scene.particles, command.particle_id)
+            if command.direction == "angle":
+                angle = math.radians(command.angle_deg)
+            else:
+                a, b = top(find(scene.surfaces, command.surface_id))
+                angle = math.atan2(b.y-a.y, b.x-a.x)
+                if command.direction == "surface_normal":
+                    angle += math.pi / 2
+            particle.velocity = Point(x=command.speed*math.cos(angle), y=command.speed*math.sin(angle))
+            particle.launch_set = True
+        elif isinstance(command, SetAnnotation):
+            scene.annotations = [a for a in scene.annotations if a != command.annotation]
+            if command.visible:
+                scene.annotations.append(command.annotation.model_copy(deep=True))
+        # Revalidate after each action; a batch is returned only if every action succeeds.
+        scene = Scene.model_validate(scene.model_dump())
+    scene.revision += 1
+    return scene
+
+
+def state(particle: Particle, gravity: float, t: float) -> Sample:
+    p, v = particle.position, particle.velocity
+    return Sample(t=t, position=Vector(x=p.x+v.x*t, y=p.y+v.y*t-gravity*t*t/2),
+                  velocity=Vector(x=v.x, y=v.y-gravity*t))
+
+
+def faces(surface: Surface):
+    vertices = polygon(surface)
+    if isinstance(surface, Ground):
+        yield "top", vertices[0], vertices[1]
+        return
+    for i, a in enumerate(vertices):
+        b = vertices[(i+1) % 3]
+        name = "base" if i == 0 else "side" if a.x == b.x else "top"
+        yield name, a, b
+
+
+def cross(a, b):
+    return a[0]*b[1] - a[1]*b[0]
+
+
+def inside(particle: Particle, surface: Surface) -> bool:
+    p = particle.position
+    if isinstance(surface, Ground):
+        return surface.x_min <= p.x <= surface.x_max and p.y < surface.y-EPS
+    return all(cross((b.x-a.x, b.y-a.y), (p.x-a.x, p.y-a.y)) > EPS
+               for _, a, b in faces(surface))
+
+
+def contact_times(particle: Particle, g: float, a: Point, b: Point):
+    dx, dy = b.x-a.x, b.y-a.y
+    length = math.hypot(dx, dy)
+    dx, dy = dx/length, dy/length
+    p, v = particle.position, particle.velocity
+    coefficients = [cross((p.x-a.x, p.y-a.y), (dx, dy)),
+                    cross((v.x, v.y), (dx, dy)), g*dx/2]
+    # NumPy handles both linear (vertical wall) and quadratic intersections.
+    if all(abs(c) < EPS for c in coefficients):
+        return [0.0]
+    roots = np.polynomial.polynomial.polyroots(coefficients)
+    return sorted(float(r.real) for r in roots if abs(r.imag) < EPS and r.real >= -EPS)
+
+
+def enters_at_start(particle: Particle, surface: Surface, g: float) -> bool:
+    p, v = particle.position, particle.velocity
+    if isinstance(surface, Ground):
+        return v.y < -EPS or (abs(v.y) <= EPS and g > 0)
+    # At a corner, entering one half-plane is insufficient: the particle must
+    # enter every half-plane defining the convex solid, not depart another face.
+    for _, a, b in faces(surface):
+        length = math.hypot(b.x-a.x, b.y-a.y)
+        edge = ((b.x-a.x)/length, (b.y-a.y)/length)
+        distance = cross(edge, (p.x-a.x, p.y-a.y))
+        if distance < -EPS:
+            return False
+        if abs(distance) <= EPS:
+            velocity = cross(edge, (v.x, v.y))
+            acceleration = cross(edge, (0, -g))
+            if velocity < -EPS or (abs(velocity) <= EPS and acceleration <= 0):
+                return False
+    return True
+
+
+def simulate(request: SimulateRequest) -> Simulation:
+    scene = request.scene
+    particle = find(scene.particles, request.particle_id)
+    if not particle.launch_set:
+        raise ValueError("Set the launch explicitly; use speed=0 for release from rest")
+    earliest = None
+    for surface in scene.surfaces:
+        if inside(particle, surface):
+            raise ValueError(f"Particle starts inside solid surface: {surface.id}")
+        for face, a, b in faces(surface):
+            dx, dy = b.x-a.x, b.y-a.y
+            for t in contact_times(particle, scene.gravity, a, b):
+                t = max(0.0, t)
+                if t > request.max_time or (earliest and t >= earliest.time):
+                    continue
+                sample = state(particle, scene.gravity, t)
+                fraction = ((sample.position.x-a.x)*dx + (sample.position.y-a.y)*dy)/(dx*dx+dy*dy)
+                if not -EPS <= fraction <= 1+EPS:
+                    continue
+                if t <= EPS:
+                    if not enters_at_start(particle, surface, scene.gravity):
+                        continue
+                earliest = Contact(time=t, surface_id=surface.id, face=face,
+                                   position=sample.position, velocity=sample.velocity)
+    duration = earliest.time if earliest else request.max_time
+    times = np.linspace(0, duration, request.samples) if duration > 0 else [0.0]
+    return Simulation(scene_id=scene.id, revision=scene.revision, particle_id=particle.id,
+                      status="contact" if earliest else "time_limit", contact=earliest,
+                      samples=[state(particle, scene.gravity, float(t)) for t in times],
+                      annotations=scene.annotations)
+
+
+def geometry(scene: Scene) -> list[dict]:
+    """Extrude the exact collision polygon, so a renderer need not reconstruct it."""
+    meshes = []
+    for surface in scene.surfaces:
+        points = polygon(surface)
+        if isinstance(surface, Ground):
+            meshes.append({"id": surface.id, "kind": "ground", "segment": [p.model_dump() for p in points]})
+            continue
+        vertices = [[p.x, p.y, z] for z in [-surface.depth/2, surface.depth/2] for p in points]
+        triangles = [[0, 2, 1], [3, 4, 5], [0, 1, 4], [0, 4, 3],
+                     [1, 2, 5], [1, 5, 4], [2, 0, 3], [2, 3, 5]]
+        meshes.append({"id": surface.id, "kind": "wedge", "vertices": vertices, "triangles": triangles,
+                       "collision_faces": [{"face": name, "from": a.model_dump(), "to": b.model_dump()}
+                                           for name, a, b in faces(surface)]})
+    return meshes

@@ -1,0 +1,49 @@
+"""Run separately: uvicorn core.playground.main:app --host 127.0.0.1 --port 8001."""
+from fastapi import FastAPI, HTTPException
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
+from pydantic import ValidationError
+
+from .engine import apply, geometry, simulate
+from .models import ApplyRequest, CreateRequest, Scene, SimulateRequest, Simulation
+
+app = FastAPI(title="Physica Playground API", version="0.1.0",
+              description="Local prototype: SI units, XY motion, +y upward. Stateless scene commands; no executable code.")
+
+
+@app.exception_handler(RequestValidationError)
+async def invalid_request(_request, exc):
+    # Do not echo invalid inputs: raw NaN/Infinity cannot be serialized as JSON.
+    return JSONResponse(status_code=422, content={"detail": [
+        {"loc": error["loc"], "type": error["type"], "msg": error["msg"]}
+        for error in exc.errors()
+    ]})
+
+
+@app.post("/v1/scenes", response_model=Scene)
+def create_scene(request: CreateRequest):
+    return Scene(gravity=request.gravity)
+
+
+@app.post("/v1/scenes/apply", response_model=Scene)
+def apply_commands(request: ApplyRequest):
+    try:
+        return apply(request)
+    except (ValueError, ValidationError) as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@app.post("/v1/simulations", response_model=Simulation)
+def run_simulation(request: SimulateRequest):
+    try:
+        return simulate(request)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@app.post("/v1/geometry")
+def render_geometry(scene: Scene):
+    try:
+        return {"scene_id": scene.id, "revision": scene.revision, "meshes": geometry(scene)}
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
