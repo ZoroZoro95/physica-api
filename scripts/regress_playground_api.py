@@ -37,6 +37,10 @@ def launch(speed, angle):
 ground = {"op": "add_surface", "surface": {"kind": "ground", "id": "floor"}}
 ball = {"op": "add_particle", "id": "ball", "position": {"x": 0, "y": 0}}
 scene = create([ground, ball, launch(25, 45)])
+assert post("/v1/scenes/validate", scene) == scene
+normalized = post("/v1/scenes/validate", {"particles": [], "surfaces": []})
+assert normalized["gravity"] == 9.8 and normalized["annotations"] == []
+post("/v1/scenes/validate", {"schema_version": "unsupported"}, 422)
 result = run(scene)
 assert result["status"] == "contact"
 assert math.isclose(result["contact"]["time"], 5/math.sqrt(2))

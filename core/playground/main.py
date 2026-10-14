@@ -33,6 +33,11 @@ def apply_commands(request: ApplyRequest):
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
+@app.post("/v1/scenes/validate", response_model=Scene)
+def validate_scene(scene: Scene):
+    return scene
+
+
 @app.post("/v1/simulations", response_model=Simulation)
 def run_simulation(request: SimulateRequest):
     try:

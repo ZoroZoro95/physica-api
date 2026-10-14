@@ -34,6 +34,7 @@ with collision radius. Surfaces are stationary. Drag is absent.
 | --- | --- |
 | POST /v1/scenes | Explicit gravity; returns empty scene state and UUID |
 | POST /v1/scenes/apply | Scene plus ordered commands; returns updated state |
+| POST /v1/scenes/validate | Imported scene; validates references and returns canonical state with defaults |
 | POST /v1/simulations | Scene, particle ID, time limit, sample count; returns motion through earliest surface contact or time limit |
 | POST /v1/geometry | Scene; returns finite ground segments and indexed wedge meshes from the collision geometry |
 
