@@ -43,7 +43,26 @@ class Wedge(Model):
     rising: bool = True
 
 
-Surface = Annotated[Ground | Wedge, Field(discriminator="kind")]
+class Staircase(Model):
+    kind: Literal["staircase"] = "staircase"
+    id: ObjectId
+    # Origin is the departure corner; a one-run approach platform lies behind it.
+    origin: Point = Field(default_factory=Point)
+    rise: Positive
+    run: Positive
+    count: int = Field(ge=1, le=128)
+    direction: Literal["right", "left"] = "right"
+    depth: Positive = 1
+    base_thickness: Positive = 1
+
+    @model_validator(mode="after")
+    def bounded_extent(self):
+        if self.count*self.run > 10_000 or self.count*self.rise+self.base_thickness > 10_000:
+            raise ValueError("Staircase extent must not exceed 10000 metres")
+        return self
+
+
+Surface = Annotated[Ground | Wedge | Staircase, Field(discriminator="kind")]
 
 
 class Particle(Model):

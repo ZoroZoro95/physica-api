@@ -7,7 +7,7 @@ import numpy as np
 
 from .models import (
     AddParticle, AddSurface, AddWedge, ApplyRequest, Contact, Ground, Particle, Point,
-    Sample, Scene, SetAnnotation, SetLaunch, SimulateRequest, Simulation, Surface, Vector, Wedge,
+    Sample, Scene, SetAnnotation, SetLaunch, SimulateRequest, Simulation, Staircase, Surface, Vector, Wedge,
 )
 
 EPS = 1e-8
@@ -24,6 +24,8 @@ def polygon(surface: Surface) -> list[Point]:
 
 
 def top(surface: Surface) -> tuple[Point, Point]:
+    if isinstance(surface, Staircase):
+        raise ValueError("Staircase has multiple faces; use explicit coordinates and an angle launch")
     vertices = polygon(surface)
     if isinstance(surface, Ground):
         return vertices[0], vertices[1]
@@ -83,6 +85,23 @@ def state(particle: Particle, gravity: float, t: float) -> Sample:
 
 
 def faces(surface: Surface):
+    if isinstance(surface, Staircase):
+        sign = 1 if surface.direction == "right" else -1
+        x, y = surface.origin.x, surface.origin.y
+        yield "platform", Point(x=x-sign*surface.run, y=y), Point(x=x, y=y)
+        for i in range(1, surface.count+1):
+            a = Point(x=x+sign*(i-1)*surface.run, y=y-(i-1)*surface.rise)
+            b = Point(x=a.x, y=y-i*surface.rise)
+            c = Point(x=x+sign*i*surface.run, y=b.y)
+            yield f"riser:{i}", a, b
+            yield f"tread:{i}", b, c
+        bottom = y-surface.count*surface.rise-surface.base_thickness
+        end = Point(x=c.x, y=bottom)
+        start = Point(x=x-sign*surface.run, y=bottom)
+        yield "end", c, end
+        yield "base", end, start
+        yield "rear", start, Point(x=x-sign*surface.run, y=y)
+        return
     vertices = polygon(surface)
     if isinstance(surface, Ground):
         yield "top", vertices[0], vertices[1]
@@ -99,6 +118,15 @@ def cross(a, b):
 
 def inside(particle: Particle, surface: Surface) -> bool:
     p = particle.position
+    if isinstance(surface, Staircase):
+        sign = 1 if surface.direction == "right" else -1
+        x = sign*(p.x-surface.origin.x)
+        bottom = surface.origin.y-surface.count*surface.rise-surface.base_thickness
+        if not -surface.run+EPS < x < surface.count*surface.run-EPS or p.y <= bottom+EPS:
+            return False
+        # Internal cell boundaries are solid too; use the lower adjacent tread.
+        step = max(0, min(surface.count, math.floor(x/surface.run)+1))
+        return p.y < surface.origin.y-step*surface.rise-EPS
     if isinstance(surface, Ground):
         return surface.x_min <= p.x <= surface.x_max and p.y < surface.y-EPS
     return all(cross((b.x-a.x, b.y-a.y), (p.x-a.x, p.y-a.y)) > EPS
@@ -123,6 +151,21 @@ def enters_at_start(particle: Particle, surface: Surface, g: float) -> bool:
     p, v = particle.position, particle.velocity
     if isinstance(surface, Ground):
         return v.y < -EPS or (abs(v.y) <= EPS and g > 0)
+    if isinstance(surface, Staircase):
+        # Union of rectangular columns. Check the infinitesimal motion against
+        # each column, without a numerical time step that might skip a thin stair.
+        def enters(distance, velocity, acceleration):
+            if distance < -EPS:
+                return False
+            return distance > EPS or velocity > EPS or (abs(velocity) <= EPS and acceleration > 0)
+
+        for left, right, bottom, upper in stair_cells(surface):
+            if all(enters(*terms) for terms in (
+                (p.x-left, v.x, 0), (right-p.x, -v.x, 0),
+                (p.y-bottom, v.y, -g), (upper-p.y, -v.y, g),
+            )):
+                return True
+        return False
     # At a corner, entering one half-plane is insufficient: the particle must
     # enter every half-plane defining the convex solid, not depart another face.
     for _, a, b in faces(surface):
@@ -171,10 +214,46 @@ def simulate(request: SimulateRequest) -> Simulation:
                       annotations=scene.annotations)
 
 
+def stair_cells(surface: Staircase):
+    sign = 1 if surface.direction == "right" else -1
+    x, y = surface.origin.x, surface.origin.y
+    bottom = y-surface.count*surface.rise-surface.base_thickness
+    for i in range(-1, surface.count):
+        a, b = x+sign*i*surface.run, x+sign*(i+1)*surface.run
+        yield min(a, b), max(a, b), bottom, y-(i+1)*surface.rise
+
+
+def stair_geometry(surface: Staircase) -> dict:
+    vertices, triangles = [], []
+    # Rectangular columns tile the solid exactly. Only the exterior boundary
+    # is outlined, so column seams do not become fictitious diagram surfaces.
+    for left, right, bottom, upper in stair_cells(surface):
+        offset = len(vertices)
+        vertices.extend([[x, y, z] for z in [-surface.depth/2, surface.depth/2]
+                         for x, y in [(left, bottom), (right, bottom), (right, upper), (left, upper)]])
+        triangles.extend([[offset+j for j in face] for face in (
+            [0, 2, 1], [0, 3, 2], [4, 5, 6], [4, 6, 7],
+            [0, 1, 5], [0, 5, 4], [1, 2, 6], [1, 6, 5],
+            [2, 3, 7], [2, 7, 6], [3, 0, 4], [3, 4, 7],
+        )])
+    outline = []
+    for _, a, b in faces(surface):
+        for z in [-surface.depth/2, surface.depth/2]:
+            outline.extend([[a.x, a.y, z], [b.x, b.y, z]])
+        outline.extend([[a.x, a.y, -surface.depth/2], [a.x, a.y, surface.depth/2]])
+    return {"id": surface.id, "kind": "staircase", "vertices": vertices,
+            "triangles": triangles, "outline": outline,
+            "collision_faces": [{"face": name, "from": a.model_dump(), "to": b.model_dump()}
+                                for name, a, b in faces(surface)]}
+
+
 def geometry(scene: Scene) -> list[dict]:
     """Extrude the exact collision polygon, so a renderer need not reconstruct it."""
     meshes = []
     for surface in scene.surfaces:
+        if isinstance(surface, Staircase):
+            meshes.append(stair_geometry(surface))
+            continue
         points = polygon(surface)
         if isinstance(surface, Ground):
             meshes.append({"id": surface.id, "kind": "ground", "segment": [p.model_dump() for p in points]})

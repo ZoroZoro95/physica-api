@@ -74,8 +74,8 @@ Starting inside a solid is rejected. No-contact within the requested horizon
 returns `time_limit`, not an invented landing. A launch must be set explicitly.
 
 Meshes use the exact polygon used for contact, not a separate illustration.
-Annotations are presentation instructions only: the renderer has not yet been
-built. Returned positions and velocities are the source for future moving arrows.
+Annotations are presentation instructions only. The separate viewer uses returned
+positions and velocities for moving arrows; annotations never change motion.
 
 ## Limits and exclusions
 
@@ -85,21 +85,40 @@ body limit. Model limits cap objects (32 surfaces, 16 particles), commands (64),
 samples (1001), and time (300 s). Nonfinite numbers and unknown fields are rejected.
 
 Each simulation follows one selected particle. Other particles do not collide
-with it. There are no bounces, sliding constraints, moving surfaces, stairs,
+with it. There are no bounces, sliding constraints, moving surfaces,
 fragmentation, symbolic unknown solving, or tool-calling LLM adapter yet.
 The existing question solver remains separate and unchanged.
 
-## Next acceptance milestone
+## Staircases
 
-Build a separate playground viewer consuming `/v1/geometry` and simulation samples.
-Render the returned wedge mesh and point trajectory without recomputing geometry;
-verify contact, scale, readable vectors and replay at desktop/mobile sizes.
-Then connect an AI tool adapter to these tested operations. Do not route the
+`add_surface` accepts `kind: "staircase"`, with `id`, positive `rise` and `run`,
+integer `count` (1-128), optional `origin`, `direction` (`right` or `left`), `depth`
+and `base_thickness`. Origin is the top departure corner. A one-run approach
+platform lies behind it. Step 1 is one rise below origin, spanning one run in
+the descent direction. Numbering is independent of labels and world coordinates.
+
+Use explicit particle coordinates and an angle launch: stairs have no single
+surface tangent or normal, so ambiguous `on_surface` placement is rejected.
+Contacts distinguish `tread:N`, `riser:N`, `platform`, `rear`, `end`, `base`.
+At a shared corner either incident face can identify the same physical contact.
+Stairs are stationary solids; rolling and bouncing are not implemented.
+
+Geometry returns extruded columns tiling the collision solid and its exterior
+outline. `python scripts/regress_playground_stairs.py` checks 118 requests covering
+changed dimensions, origins, mirroring, sample-count independence, corners,
+release/departure, invalid inputs and mesh/collision endpoint agreement.
+
+## Viewer and next acceptance milestone
+
+The separate frontend `/playground` viewer consumes geometry and samples for
+wedges, ground and stairs. Its browser audit checks desktop/mobile rendering,
+playback, mirrored stairs and agreement with the returned contact position.
+Next connect an AI tool adapter to these tested operations. Do not route the
 student app through it until those checks pass.
 
 ## Verification checkpoint
 
-The regression script exercises 75 structured API requests plus raw nonfinite
+The baseline regression script exercises 78 structured API requests plus raw nonfinite
 input rejection and numerical assertions: conserved energy, constant horizontal
 velocity, mirrored wedge slopes, contact independent of sample count, vertical
 side contact, finite surfaces, corner departure, explicit release, invalid IDs,
