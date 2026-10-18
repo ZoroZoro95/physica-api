@@ -192,3 +192,11 @@ of AI-generated scene acceptance yet.
 
 Source audit: `core/playground/models.py`, `docs/playground-api.md`, and the split
 frontend's `docs/playground-viewer.md`.
+
+## 11. AI Adapter Checkpoint: 2026-10-18
+
+A bounded local text-to-tool CLI now exists; see `playground-agent.md`. It calls
+the API with typed commands and exports review candidates, not accepted answers.
+Deterministic tool-loop integration is tested separately from model understanding.
+Live provider evaluation, image input and student-facing integration are still
+pending. This does not complete Phase A's AI-generated scene acceptance gate.

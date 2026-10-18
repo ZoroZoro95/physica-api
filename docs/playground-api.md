@@ -86,7 +86,8 @@ samples (1001), and time (300 s). Nonfinite numbers and unknown fields are rejec
 
 Each simulation follows one selected particle. Other particles do not collide
 with it. There are no bounces, sliding constraints, moving surfaces,
-fragmentation, symbolic unknown solving, or tool-calling LLM adapter yet.
+fragmentation or symbolic unknown solving. A bounded local text tool adapter now
+exists (see `playground-agent.md`), but live-provider acceptance is still pending.
 The existing question solver remains separate and unchanged.
 
 ## Staircases
@@ -113,7 +114,7 @@ release/departure, invalid inputs and mesh/collision endpoint agreement.
 The separate frontend `/playground` viewer consumes geometry and samples for
 wedges, ground and stairs. Its browser audit checks desktop/mobile rendering,
 playback, mirrored stairs and agreement with the returned contact position.
-Next connect an AI tool adapter to these tested operations. Do not route the
+Next evaluate the local AI adapter against real model outputs. Do not route the
 student app through it until those checks pass.
 
 ## Verification checkpoint
