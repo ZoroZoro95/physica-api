@@ -150,6 +150,16 @@ class AgentTests(unittest.TestCase):
         self.assertEqual(result['status'], 'failed')
         self.assertNotIn('secret-value', json.dumps(result))
 
+    def test_rate_limit_is_not_a_configuration_error(self):
+        class RateLimitError(Exception):
+            pass
+        def limited(*_):
+            raise RateLimitError('private-provider-details')
+        result = run_agent('Question', limited, self.api)
+        self.assertEqual(result['status'], 'failed')
+        self.assertIn('rate limit', result['reason'])
+        self.assertNotIn('private-provider-details', json.dumps(result))
+
     def test_api_failure_is_separate(self):
         def broken(_request):
             raise httpx.ConnectError('unavailable')

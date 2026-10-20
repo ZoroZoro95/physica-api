@@ -30,8 +30,10 @@ python scripts/playground_agent.py \
 The named model is a configurable example, not a guaranteed account entitlement.
 No default model or unrelated-provider key fallback is used. The implementation
 follows [Groq local tool calling](https://console.groq.com/docs/tool-use/local-tool-calling).
-Provider timeouts are 30 seconds, HTTP timeouts 15 seconds. Provider retries are
-disabled; the loop is capped at 8 model rounds and 16 tool calls, with at most
+Provider timeouts are 30 seconds, HTTP timeouts 15 seconds. The SDK permits up to
+two retries per model round and respects provider Retry-After headers; exhausted
+rate limits are reported separately from invalid configuration. The loop is
+capped at 8 model rounds (at most 24 provider attempts) and 16 tool calls, with at most
 3000 completion tokens per model round. This is a bounded local prototype, not
 a production cost or concurrency policy.
 
@@ -78,4 +80,20 @@ missing launch data, diagram-dependent ambiguity and unsupported bounce/drag.
 Inspect each exported scene against its question and compare API measurements to
 independent expected results. A model refusal or an HTTP success is not sufficient.
 
-Live provider acceptance is pending until a valid Groq key/model is configured.
+## Live checkpoint: 2026-10-20
+
+The configured Groq key was accepted with `openai/gpt-oss-120b`. Initial runs hit
+the account's 8000-token/minute limit mid-loop. Bounded SDK retries were added;
+the follow-up proceeded through scene creation, commands and simulation.
+
+Acceptance FAILED for the horizontal staircase question (10 m/s, rise/run 1 m,
+g=9.8). The model chose five steps, so the particle left the finite geometry
+without contact. It then tried adding a duplicate particle and falsely claimed
+stair collisions were unsupported. Its final response was plain text, not the
+required finish tool, so no review candidate was exported. The engine's known
+21st-tread result requires a staircase extending far enough to contain that event.
+
+Local evidence: `questions/debug_reports/playground-agent/20261020T143151Z-61839a75/report.json`.
+This is a scene-planning and recovery failure, not a successful model evaluation.
+Next work must address insufficient illustrative extents and tool-error recovery
+generically, then repeat the full live evaluation set. Do not hardcode step 21.

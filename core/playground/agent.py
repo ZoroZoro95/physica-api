@@ -187,6 +187,8 @@ def run_agent(question, complete, api, *, max_rounds=8, max_calls=16):
         try:
             message = complete(messages, tool_definitions())
         except Exception as exc:
+            if type(exc).__name__ == 'RateLimitError':
+                return result('failed', 'Model rate limit reached after bounded retries; wait for the provider allowance to reset.')
             return result('failed', f'Model request failed ({type(exc).__name__}); check provider configuration.')
         if not isinstance(message, dict):
             return result('failed', 'Malformed model response.')

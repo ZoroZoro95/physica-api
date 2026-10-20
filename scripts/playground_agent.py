@@ -33,7 +33,9 @@ def main():
     if (url.scheme != 'http' or url.hostname not in ('localhost', '127.0.0.1', '::1')
             or url.username or url.password or url.path not in ('', '/') or url.query or url.fragment):
         parser.error('This prototype only connects to a loopback HTTP playground API')
-    client = Groq(api_key=os.environ['GROQ_API_KEY'], timeout=30, max_retries=0)
+    # The free-tier minute budget can be smaller than a complete tool loop.
+    # SDK retries respect Retry-After; never retry indefinitely.
+    client = Groq(api_key=os.environ['GROQ_API_KEY'], timeout=30, max_retries=2)
 
     def complete(messages, tools):
         response = client.chat.completions.create(model=model, messages=messages, tools=tools,
