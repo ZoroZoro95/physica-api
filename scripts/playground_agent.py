@@ -39,7 +39,7 @@ def main():
 
     def complete(messages, tools):
         response = client.chat.completions.create(model=model, messages=messages, tools=tools,
-            tool_choice='auto', parallel_tool_calls=False, temperature=0, max_completion_tokens=3000)
+            tool_choice='required', parallel_tool_calls=False, temperature=0, max_completion_tokens=3000)
         message = response.choices[0].message
         return {'content': message.content,
                 'tool_calls': [c.model_dump() for c in message.tool_calls or []]}

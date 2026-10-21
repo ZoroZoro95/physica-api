@@ -67,6 +67,53 @@ class AgentTests(unittest.TestCase):
         self.assertIsNone(result['scene'])
         self.assertIn('Simulate', result['trace'][0]['result']['error'])
 
+    def test_initial_tools_omit_commands_until_scene_exists(self):
+        offered = []
+        responses = scripted(call('create_scene', {'gravity': 9.8}),
+            call('finish_scene', {**FINISH, 'status': 'needs_clarification'}))
+
+        def complete(messages, tools):
+            offered.append({tool['function']['name'] for tool in tools})
+            return responses(messages, tools)
+
+        run_agent('Test question', complete, self.api)
+        self.assertEqual(offered[0], {'create_scene', 'finish_scene'})
+        self.assertIn('apply_commands', offered[1])
+        self.assertIn('simulate_scene', offered[1])
+
+    def test_provider_tool_rejection_is_not_configuration_error(self):
+        class ProviderError(Exception):
+            body = {'error': {'code': 'tool_use_failed', 'message': 'private provider details'}}
+
+        def complete(messages, tools):
+            raise ProviderError()
+
+        result = run_agent('Test question', complete, self.api)
+        self.assertEqual(result['status'], 'failed')
+        self.assertIn('model-generated tool call', result['reason'])
+        self.assertNotIn('private provider details', json.dumps(result))
+        self.assertIsNone(result['scene'])
+        self.assertEqual(len(result['trace']), 2)
+
+    def test_provider_tool_rejection_can_retry_without_executing_arguments(self):
+        class ProviderError(Exception):
+            body = {'code': 'tool_use_failed'}
+
+        attempts = 0
+
+        def complete(messages, tools):
+            nonlocal attempts
+            attempts += 1
+            if attempts == 1:
+                raise ProviderError()
+            return call('finish_scene', {**FINISH, 'status': 'needs_clarification'})
+
+        result = run_agent('Test question', complete, self.api)
+        self.assertEqual(result['status'], 'needs_clarification')
+        self.assertEqual(result['tool_calls'], 1)
+        self.assertEqual(attempts, 2)
+        self.assertIsNone(result['scene'])
+
     def test_missing_and_unsupported_do_not_export_scene(self):
         for status in ('needs_clarification', 'unsupported'):
             result = self.run_steps(call('finish_scene', {**FINISH, 'status': status}))
@@ -116,7 +163,27 @@ class AgentTests(unittest.TestCase):
         batch = commands()
         batch['commands'].append({'op': 'add_particle', 'id': 'Q', 'position': {'x': 1, 'y': 2}})
         result = self.run_steps(call('create_scene', {'gravity': 10}), call('apply_commands', batch), max_rounds=2)
-        self.assertIn('one particle', result['trace'][-1]['result']['error'])
+        self.assertIn('One particle', result['trace'][-1]['result']['error'])
+
+    def test_finite_extent_miss_can_rebuild_without_changing_launch(self):
+        short = commands()
+        short['commands'][0]['surface']['count'] = 5
+        result = self.run_steps(
+            call('create_scene', {'gravity': 9.8}),
+            call('apply_commands', short),
+            call('simulate_scene', {'particle_id': 'P', 'max_time': 5}),
+            call('create_scene', {'gravity': 9.8}),
+            call('apply_commands', commands()),
+            call('simulate_scene', {'particle_id': 'P', 'max_time': 5}),
+            call('finish_scene', FINISH))
+        missed = result['trace'][2]['result']
+        self.assertEqual(missed['status'], 'time_limit')
+        self.assertEqual(missed['diagnostic']['surfaces'][0]['count'], 5)
+        self.assertEqual(missed['diagnostic']['max_time'], 5)
+        self.assertIn('create_scene', missed['diagnostic']['recovery'])
+        self.assertEqual(result['status'], 'review')
+        self.assertEqual(result['simulation']['contact']['face'], 'tread:21')
+        self.assertEqual(result['scene']['particles'][0]['velocity'], {'x': 10.0, 'y': 0.0})
 
     def test_time_limit_not_relabelled_contact(self):
         result = self.run_steps(call('create_scene', {'gravity': 9.8}),

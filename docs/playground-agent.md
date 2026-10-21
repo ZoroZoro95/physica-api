@@ -37,6 +37,18 @@ capped at 8 model rounds (at most 24 provider attempts) and 16 tool calls, with 
 3000 completion tokens per model round. This is a bounded local prototype, not
 a production cost or concurrency policy.
 
+Tool calls are required at the provider boundary. Before scene creation, only
+creation and finish/clarification schemas are sent; other tools become available
+once a scene exists. A provider `tool_use_failed` rejection receives at most one
+additional attempt within the same eight-round budget. Rejected arguments are
+never executed. Repeated rejection fails without exporting a scene.
+
+For a simulation time limit, feedback includes the actual finite surfaces and
+horizon, rather than treating a missed contact as unsupported physics. Rebuilding
+requires resetting the scene; adding an existing particle is not an update.
+Extent provenance is still prompt-enforced, not mechanically verified: a model
+can still change a physical input incorrectly. Human review remains mandatory.
+
 ## Outputs
 
 Each run writes a separate directory under the git-ignored
@@ -97,3 +109,31 @@ Local evidence: `questions/debug_reports/playground-agent/20261020T143151Z-61839
 This is a scene-planning and recovery failure, not a successful model evaluation.
 Next work must address insufficient illustrative extents and tool-error recovery
 generically, then repeat the full live evaluation set. Do not hardcode step 21.
+
+The follow-up with required tools and finite-extent diagnostics still failed:
+`20261020T144305Z-94e2495b/report.json`. The model exhausted its round budget,
+repeated duplicate additions and shifted the launch point instead of extending
+the illustrative staircase correctly. No candidate was exported. Prompt changes
+alone have not resolved this failure.
+
+The old text23d model `meta-llama/llama-4-scout-17b-16e-instruct` was absent from
+the configured account's live Groq model list. `openai/gpt-oss-20b` is being
+evaluated explicitly with `--model`, not silently installed as a fallback.
+The first comparison failed before any tool executed; later diagnostics identify
+provider rejection of model-generated tool calls as a distinct failure category.
+
+### Follow-up: 2026-10-21
+
+The smaller-model comparison also failed acceptance after bounded recovery:
+`questions/debug_reports/playground-agent/20261021T074009Z-d985e49e/report.json`.
+It recovered from an invalid surface-relative stair launch and one provider tool
+rejection, but retained five steps and repeatedly extended only the time horizon.
+The eight-round budget ended without a first contact or exported scene. No default
+model configuration was changed. Neither model is accepted for autonomous use.
+
+Verification: 23 scripted orchestration tests, 78 general API requests, and 118
+staircase API requests pass. These do not establish live-model reliability.
+The next acceptance gate needs explicit separation of given constraints from
+illustrative extents, and bounded engine-assisted extent planning that cannot
+change the former. More prompt wording or a larger retry budget is not evidence
+that this problem is fixed.

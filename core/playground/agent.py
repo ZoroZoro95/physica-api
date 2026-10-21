@@ -38,9 +38,19 @@ Use explicit position and angle launch for stairs (no single surface normal).
 Point placement on a surface never implies sliding or rolling constraints.
 
 Call create_scene with explicit gravity, apply_commands, then simulate_scene.
+Tools are exposed in stages: apply_commands and simulate_scene become available
+after create_scene succeeds. Their absence before creation is not a limitation
+of the physics engine and is not a reason to refuse a supported scene.
 Inspect the tool result before finish_scene(review). A time_limit is not a
 landing or proof of impossibility. If a display boundary truncates the requested
 event, rebuild an appropriate scene or explain the limitation; do not claim solved.
+To rebuild, call create_scene again, then reapply the complete scene. Adding an
+existing particle or surface does not update it. Preserve all supplied dimensions
+and launch values. Only expand an extent you explicitly chose as illustrative;
+never change a stated finite boundary to force a contact. Both staircase treads
+and risers are collision surfaces. A missed contact does not mean these features
+are unsupported. If bounded retries cannot establish the requested event, finish
+with needs_clarification and explain the unresolved extent or time horizon.
 If a tool fails, fix only the invalid arguments, within the bounded tool budget.
 Do not invent tools, executable code or arbitrary formulas. There are no files,
 network tools or answer keys available to you. Always finish via finish_scene;
@@ -88,7 +98,7 @@ DESCRIPTIONS = {
 }
 
 
-def tool_definitions():
+def tool_definitions(names=None):
     # Schemas come from the same validation types as the API, not a second
     # hand-maintained catalogue. Inline local refs for provider compatibility.
     def inline(value, definitions):
@@ -103,7 +113,7 @@ def tool_definitions():
 
     return [{"type": "function", "function": {"name": name, "description": DESCRIPTIONS[name],
              "parameters": inline(schema := model.model_json_schema(), schema.get("$defs", {}))}}
-            for name, model in MODELS.items()]
+            for name, model in MODELS.items() if names is None or name in names]
 
 
 class ToolSession:
@@ -146,7 +156,7 @@ class ToolSession:
         if name == 'apply_commands':
             added = sum(c.op == 'add_particle' for c in args.commands)
             if len(self.scene.particles)+added > 1:
-                raise ValueError("This agent supports one particle; multi-body requests are unsupported")
+                raise ValueError("One particle maximum. To replace the current scene, call create_scene and rebuild; add_particle does not update an existing particle.")
             candidate = self.post('scenes/apply', {'scene': self.scene.model_dump(mode='json'), **args.model_dump(mode='json')})
             self.scene, self.simulation = Scene.model_validate(candidate), None
             return self.scene.model_dump(mode='json')
@@ -160,9 +170,17 @@ class ToolSession:
         if simulation.particle_id != args.particle_id or not simulation.samples:
             raise ValueError("API returned an invalid particle simulation")
         self.simulation = simulation
-        return {'status': simulation.status, 'contact': result['contact'],
+        output = {'status': simulation.status, 'contact': result['contact'],
                 'initial': result['samples'][0], 'final': result['samples'][-1],
                 'scene_id': simulation.scene_id, 'revision': simulation.revision}
+        if simulation.status == 'time_limit':
+            output['diagnostic'] = {
+                'meaning': 'No contact was detected with the supplied finite surfaces within max_time. This is not proof that the requested event is impossible.',
+                'max_time': args.max_time,
+                'surfaces': [surface.model_dump(mode='json') for surface in self.scene.surfaces],
+                'recovery': 'Check the supplied geometry and horizon. If an illustrative extent is insufficient, reset with create_scene and rebuild with a larger extent while preserving question values. Do not add a duplicate particle or move the launch point to force a hit.',
+            }
+        return output
 
 
 def run_agent(question, complete, api, *, max_rounds=8, max_calls=16):
@@ -173,7 +191,7 @@ def run_agent(question, complete, api, *, max_rounds=8, max_calls=16):
         raise ValueError("Agent budget outside supported bounds")
     session = ToolSession(api)
     messages = [{'role': 'system', 'content': PROMPT}, {'role': 'user', 'content': question}]
-    trace, calls = [], 0
+    trace, calls, rejected_calls = [], 0, 0
 
     def result(status, reason):
         ready = status == 'review' and session.simulation is not None
@@ -185,10 +203,20 @@ def run_agent(question, complete, api, *, max_rounds=8, max_calls=16):
 
     for _ in range(max_rounds):
         try:
-            message = complete(messages, tool_definitions())
+            available = None if session.scene is not None else {'create_scene', 'finish_scene'}
+            message = complete(messages, tool_definitions(available))
         except Exception as exc:
             if type(exc).__name__ == 'RateLimitError':
                 return result('failed', 'Model rate limit reached after bounded retries; wait for the provider allowance to reset.')
+            body = getattr(exc, 'body', None)
+            error = body.get('error', body) if isinstance(body, dict) else {}
+            if isinstance(error, dict) and error.get('code') == 'tool_use_failed':
+                trace.append({'provider_error': 'tool_use_failed'})
+                if rejected_calls == 0:
+                    rejected_calls += 1
+                    messages.append({'role': 'user', 'content': 'The provider rejected your last tool call. Nothing from that response was executed. Return one call to an available tool with arguments matching its JSON schema. Do not return plain text or invent tool names.'})
+                    continue
+                return result('failed', 'Provider rejected the model-generated tool call; no unvalidated scene was exported.')
             return result('failed', f'Model request failed ({type(exc).__name__}); check provider configuration.')
         if not isinstance(message, dict):
             return result('failed', 'Malformed model response.')
