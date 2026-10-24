@@ -6,6 +6,7 @@ from pydantic import ValidationError
 
 from .engine import apply, geometry, simulate
 from .models import ApplyRequest, CreateRequest, Scene, SimulateRequest, Simulation
+from .planning import PlannedSimulation, PlannedSimulationRequest, plan_simulation
 
 app = FastAPI(title="Physica Playground API", version="0.1.0",
               description="Local prototype: SI units, XY motion, +y upward. Stateless scene commands; no executable code.")
@@ -50,5 +51,13 @@ def run_simulation(request: SimulateRequest):
 def render_geometry(scene: Scene):
     try:
         return {"scene_id": scene.id, "revision": scene.revision, "meshes": geometry(scene)}
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@app.post("/v1/simulations/planned", response_model=PlannedSimulation)
+def run_planned_simulation(request: PlannedSimulationRequest):
+    try:
+        return plan_simulation(request)
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc

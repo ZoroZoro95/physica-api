@@ -51,6 +51,20 @@ can still change a physical input incorrectly. Human review remains mandatory.
 
 ## Outputs
 
+`simulate_scene` optionally accepts `continuing_staircases: [surface_id, ...]`.
+Only use this for continuing geometry, not a stated finite staircase. The host
+calls `/v1/simulations/planned`, which sizes repeated steps to cover horizontal
+travel during the requested horizon. Only step count and scene revision change;
+gravity, launch, coordinates, rise and run remain unchanged. Limits fail explicitly
+rather than silently clipping the geometry. The model still needs to choose a
+sufficient time horizon; continuation does not guarantee contact by that time.
+
+The report includes the selected continuing IDs, engine-reported extent changes
+in its trace, and a host-added assumption even if the model omits it. Classification
+of a question as continuing remains subject to human review. This is not a general
+proof that the model preserved every source constraint. Ground and wedge extents
+are not automatically expanded by this planner.
+
 Each run writes a separate directory under the git-ignored
 `questions/debug_reports/playground-agent/`. `report.json` records the input,
 configured model, status, declared assumptions and actual tool arguments/results.
@@ -137,3 +151,19 @@ The next acceptance gate needs explicit separation of given constraints from
 illustrative extents, and bounded engine-assisted extent planning that cannot
 change the former. More prompt wording or a larger retry budget is not evidence
 that this problem is fixed.
+
+### Extent-planning checkpoint: 2026-10-24
+
+A deterministic, opt-in continuing-staircase planner now passes five test methods
+covering varied dimensions, speeds, origins, direction, finite geometry, limits,
+short horizons and idempotence. The agent suite passes 24 tests, including a
+four-tool path from a five-step display to an engine-computed 21st-tread contact
+without model-led reconstruction. Existing 78 general and 118 staircase request
+checks still pass. None of these are live-model acceptance results.
+
+Live acceptance still FAILED in
+`questions/debug_reports/playground-agent/20261024T174241Z-8cc14f54/report.json`:
+the model attempted review before scene creation and simulation, then produced
+provider-rejected tool calls. No scene was exported. The next orchestration gate
+is reliable construction and simulation using the new capability, with finite
+and continuing scenarios tested separately. No deployment is approved by these tests.

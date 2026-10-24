@@ -8,6 +8,7 @@ import httpx
 from pydantic import Field, ValidationError
 
 from .models import Command, Model, ObjectId, Positive, Scene, Simulation
+from .planning import PlannedSimulation
 
 
 PROMPT = """Build a REVIEW CANDIDATE for a Physica playground scene using tools.
@@ -36,6 +37,13 @@ Stair origin is the TOP departure corner. A one-run approach platform lies behin
 it. Step n is n*rise below origin, spanning [(n-1)*run,n*run] along descent.
 Use explicit position and angle launch for stairs (no single surface normal).
 Point placement on a surface never implies sliding or rolling constraints.
+For an indefinitely continuing staircase, simulate_scene accepts
+continuing_staircases=[surface_id]. The backend sizes the repeated geometry for
+the requested time horizon without changing rise, run, launch or gravity. Use it
+only when continued steps are stated or are an explicitly disclosed modelling
+assumption because no finite count is supplied. Never use it for a stated finite
+staircase. If continuation is ambiguous, ask for clarification. The initial count
+in this case is only a display extent, not the number of steps in the question.
 
 Call create_scene with explicit gravity, apply_commands, then simulate_scene.
 Tools are exposed in stages: apply_commands and simulate_scene become available
@@ -69,6 +77,7 @@ class ApplyArgs(Model):
 class SimulateArgs(Model):
     particle_id: ObjectId
     max_time: float = Field(gt=0, le=300, allow_inf_nan=False)
+    continuing_staircases: list[ObjectId] = Field(default_factory=list, max_length=32)
 
 
 class FinishArgs(Model):
@@ -124,6 +133,7 @@ class ToolSession:
         self.scene = None
         self.simulation = None
         self.finished = None
+        self.continuing_staircases = []
 
     def post(self, route, body):
         response = self.api.post('/v1/'+route, json=body)
@@ -141,6 +151,7 @@ class ToolSession:
             raise ValueError("Tool arguments exceed 64 KB")
         if name in ('create_scene', 'apply_commands', 'simulate_scene'):
             self.simulation = None
+            self.continuing_staircases = []
         args = MODELS[name].model_validate_json(raw)
         if name == 'create_scene':
             scene = Scene.model_validate(self.post('scenes', args.model_dump()))
@@ -162,17 +173,33 @@ class ToolSession:
             return self.scene.model_dump(mode='json')
         # Invalidate old results even if a new simulation request fails.
         self.simulation = None
-        result = self.post('simulations', {'scene': self.scene.model_dump(mode='json'),
-                                          **args.model_dump(), 'samples': 121})
+        if args.continuing_staircases:
+            planned = PlannedSimulation.model_validate(self.post('simulations/planned',
+                {'scene': self.scene.model_dump(mode='json'), **args.model_dump(), 'samples': 121}))
+            expected_revision = self.scene.revision + bool(planned.extent_changes)
+            if (planned.scene.id, planned.scene.revision) != (self.scene.id, expected_revision):
+                raise ValueError('API returned a stale planned scene revision')
+            self.scene = planned.scene
+            result = planned.simulation.model_dump(mode='json')
+            extent_changes = [change.model_dump() for change in planned.extent_changes]
+        else:
+            result = self.post('simulations', {'scene': self.scene.model_dump(mode='json'),
+                **args.model_dump(exclude={'continuing_staircases'}), 'samples': 121})
+            extent_changes = []
         simulation = Simulation.model_validate(result)
         if (simulation.scene_id, simulation.revision) != (self.scene.id, self.scene.revision):
             raise ValueError("API returned a stale scene revision")
         if simulation.particle_id != args.particle_id or not simulation.samples:
             raise ValueError("API returned an invalid particle simulation")
         self.simulation = simulation
+        self.continuing_staircases = list(args.continuing_staircases)
         output = {'status': simulation.status, 'contact': result['contact'],
                 'initial': result['samples'][0], 'final': result['samples'][-1],
                 'scene_id': simulation.scene_id, 'revision': simulation.revision}
+        if args.continuing_staircases:
+            output['extent_changes'] = extent_changes
+            output['continuing_staircases'] = args.continuing_staircases
+            output['assumption'] = 'Listed staircases were treated as continuing, not finite. Disclose this in the review.'
         if simulation.status == 'time_limit':
             output['diagnostic'] = {
                 'meaning': 'No contact was detected with the supplied finite surfaces within max_time. This is not proof that the requested event is impossible.',
@@ -195,10 +222,15 @@ def run_agent(question, complete, api, *, max_rounds=8, max_calls=16):
 
     def result(status, reason):
         ready = status == 'review' and session.simulation is not None
+        assumptions = list(session.finished['assumptions']) if session.finished else []
+        if ready and session.continuing_staircases:
+            assumptions.append('Backend treated these staircases as continuing beyond the displayed initial extent: '
+                + ', '.join(session.continuing_staircases) + '. This interpretation requires review against the question.')
         return {'status': status, 'reason': reason,
-                'assumptions': session.finished['assumptions'] if session.finished else [],
+                'assumptions': assumptions,
                 'scene': session.scene.model_dump(mode='json') if ready else None,
                 'simulation': session.simulation.model_dump(mode='json') if ready else None,
+                'continuing_staircases': session.continuing_staircases if ready else [],
                 'trace': trace, 'tool_calls': calls, 'question': question}
 
     for _ in range(max_rounds):

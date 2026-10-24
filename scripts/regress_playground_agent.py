@@ -185,6 +185,22 @@ class AgentTests(unittest.TestCase):
         self.assertEqual(result['simulation']['contact']['face'], 'tread:21')
         self.assertEqual(result['scene']['particles'][0]['velocity'], {'x': 10.0, 'y': 0.0})
 
+    def test_continuing_extent_is_planned_and_recorded_without_model_rebuild(self):
+        short = commands()
+        short['commands'][0]['surface']['count'] = 5
+        result = self.run_steps(call('create_scene', {'gravity': 9.8}),
+            call('apply_commands', short),
+            call('simulate_scene', {'particle_id': 'P', 'max_time': 5,
+                'continuing_staircases': ['steps']}),
+            call('finish_scene', FINISH))
+        self.assertEqual(result['status'], 'review')
+        self.assertEqual(result['continuing_staircases'], ['steps'])
+        self.assertIn('Backend treated', result['assumptions'][-1])
+        self.assertEqual(result['scene']['surfaces'][0]['count'], 51)
+        self.assertEqual(result['simulation']['contact']['face'], 'tread:21')
+        self.assertEqual(result['simulation']['revision'], result['scene']['revision'])
+        self.assertEqual(result['tool_calls'], 4)
+
     def test_time_limit_not_relabelled_contact(self):
         result = self.run_steps(call('create_scene', {'gravity': 9.8}),
             call('apply_commands', commands()), call('simulate_scene', {'particle_id': 'P', 'max_time': .1}),
