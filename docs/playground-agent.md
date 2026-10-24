@@ -2,6 +2,18 @@
 
 ## Boundary
 
+The CLI now uses an atomic recipe: the model calls `build_and_simulate` with
+gravity, typed commands, simulation settings and assumptions. The host runs the
+existing create/apply/plan/simulate API operations in order, adopting a candidate
+only after simulation succeeds. `finish_scene` is restricted to clarification or
+unsupported requests in this mode. Review text is host-generated from the engine
+status, not an LLM claim. A no-contact result explicitly remains unsolved.
+
+The CLI is capped at three model rounds and three tool calls, including its one
+malformed-tool retry. The eight-round workflow described below remains available
+for low-level regression compatibility; it is no longer the CLI default.
+Successful internal HTTP operations are recorded under `operations` in reports.
+
 The adapter exposes four local tools: `create_scene`, `apply_commands`,
 `simulate_scene`, `finish_scene`. Arguments use the API's Pydantic command types.
 The host retains canonical scene state and calls the separate playground HTTP
@@ -167,3 +179,21 @@ the model attempted review before scene creation and simulation, then produced
 provider-rejected tool calls. No scene was exported. The next orchestration gate
 is reliable construction and simulation using the new capability, with finite
 and continuing scenarios tested separately. No deployment is approved by these tests.
+
+### Atomic builder checkpoint: 2026-10-24
+
+Two live `openai/gpt-oss-120b` cases now produced correct engine-backed scenes
+with one model tool call each:
+
+- Original staircase, speed 10 m/s, rise/run 1 m: tread 21 at 2.070196678 s.
+  Report: `20261024T180934Z-b500179f/report.json`.
+- Mirrored staircase, particle M at (13,27), speed 8 m/s left, rise 1.2 m,
+  run 0.9 m: tread 20; supplied position, velocity, dimensions and gravity were
+  independently checked. Report: `20261024T181026Z-304a7efc/report.json`.
+
+Reports are under `questions/debug_reports/playground-agent/`. This is a narrow
+live checkpoint, not broad language-model acceptance. Finite stairs, missing
+inputs, unsupported physics and non-stair scenes still need live evaluation of
+this new path. Seven atomic-builder tests, 24 workflow tests, five planner tests,
+78 general API requests and 118 staircase API requests pass. No browser visual
+verification or deployment was performed for this backend-only change.

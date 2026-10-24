@@ -45,7 +45,8 @@ def main():
                 'tool_calls': [c.model_dump() for c in message.tool_calls or []]}
 
     with httpx.Client(base_url=args.api_url.rstrip('/'), timeout=15, follow_redirects=False, trust_env=False) as api:
-        report = run_agent(args.question, complete, api)
+        report = run_agent(args.question, complete, api, atomic=True, max_rounds=3, max_calls=3)
+    report['orchestration'] = 'atomic_scene_recipe'
     report['model'] = model
     destination = Path(__file__).resolve().parents[1] / 'questions/debug_reports/playground-agent'
     destination /= datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')+'-'+uuid4().hex[:8]
