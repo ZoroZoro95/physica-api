@@ -7,9 +7,11 @@ from pydantic import ValidationError
 from .engine import apply, geometry, simulate
 from .models import ApplyRequest, CreateRequest, Scene, SimulateRequest, Simulation
 from .planning import PlannedSimulation, PlannedSimulationRequest, plan_simulation
+from .generation import router as generation_router
 
 app = FastAPI(title="Physica Playground API", version="0.1.0",
               description="Local prototype: SI units, XY motion, +y upward. Stateless scene commands; no executable code.")
+app.include_router(generation_router)
 
 
 @app.exception_handler(RequestValidationError)

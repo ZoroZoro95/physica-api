@@ -20,12 +20,39 @@ The host retains canonical scene state and calls the separate playground HTTP
 API. No generated code, arbitrary formulas, filesystem tools or network tools
 are exposed to the model. Physics results come only from the simulation API.
 
-This is a CLI integration, not a public endpoint or student-app feature. It
+This is a CLI integration and an opt-in local HTTP endpoint, not a public authenticated service or student-solver feature. It
 supports text input and one point particle under gravity against stationary
 ground, wedges or stairs. Images, symbolic solving, sliding, interacting bodies,
 bounces and narration generation are outside this increment.
 
 ## Run
+
+For the local playground question form, start the backend explicitly:
+
+```sh
+PLAYGROUND_AI_ENABLED=1 python -m uvicorn core.playground.main:app --env-file .env --host 127.0.0.1 --port 8001
+```
+
+`POST /v1/generate` accepts only `{ "question": "..." }`. Configure `GROQ_API_KEY`
+and `PLAYGROUND_MODEL` on the server. No keys, model overrides or target URLs are
+accepted from the browser. Generation is disabled by default; keep it disabled
+on public services until authentication, shared rate limits and cost controls exist.
+The local endpoint allows one generation at a time per process and returns 429
+when busy. It uses at most three model rounds, 20-second provider timeouts and no
+SDK retries. A browser timeout/disconnect does not cancel provider work already
+running. This is not a distributed queue or a production-wide concurrency limit.
+
+Responses contain status, reason, assumptions, report ID and, for review
+candidates only, the matching scene, geometry and simulation. The viewer consumes
+that exact simulation rather than recalculating it over a different horizon.
+Detailed traces stay in the local debug-report directory, not the browser response.
+
+Verification on 2026-10-25: six generation-route tests plus the existing suites
+pass. Desktop/mobile mocked UI states and one live explicitly continuing staircase
+passed (report `f6931446-9091-4d38-a619-9b316602f998`). An earlier live staircase
+without a finite count failed the expected-contact check: the model chose ten
+finite steps and returned a time limit (report `0bd52201-6e41-4213-a585-da1b85181513`).
+The UI accurately displayed no contact; source interpretation remains imperfect.
 
 Start the separate playground API on port 8001. Use the repository's Python
 environment with `requirements-dev.txt` installed (HTTP client and tests).
