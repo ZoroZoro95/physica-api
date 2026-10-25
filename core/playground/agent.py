@@ -37,6 +37,20 @@ Stair origin is the TOP departure corner. A one-run approach platform lies behin
 it. Step n is n*rise below origin, spanning [(n-1)*run,n*run] along descent.
 Use explicit position and angle launch for stairs (no single surface normal).
 Point placement on a surface never implies sliding or rolling constraints.
+Use set_measurement AFTER adding referenced objects to request important dimensions.
+These are declarative annotations, not calculated answers. Distance measurements
+use start/end anchors and axis horizontal, vertical or direct (length along a line).
+Angle measurements use start, vertex, end anchors; the engine returns the smaller
+angle in degrees. Anchors are either kind=point with point={x,y} copied from the
+question, or kind=object with target and feature. Particle features are launch
+and contact. Wedge/ground features are origin, base_start, base_end, top_start,
+top_end (start/end ordered left-to-right). Stair features are origin, step_upper,
+step_start, step_end with a 1-based step index. Do not invent contact coordinates
+or calculate a dimension value yourself. Contact anchors stay unavailable until
+the engine finds contact. Use short meaningful labels, e.g. Height, Range, Slope.
+For example a vertical distance from a particle launch anchor to its contact
+anchor displays the launch-to-impact height. Add only measurements relevant to
+the question, usually 1-3. The first set_measurement replaces legacy defaults.
 For an indefinitely continuing staircase, simulate_scene accepts
 continuing_staircases=[surface_id]. The backend sizes the repeated geometry for
 the requested time horizon without changing rise, run, launch or gravity. Use it

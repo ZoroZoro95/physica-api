@@ -77,6 +77,69 @@ class Annotation(Model):
     quantity: Literal["velocity", "velocity_x", "velocity_y", "gravity", "highlight"]
 
 
+class FixedAnchor(Model):
+    kind: Literal["point"]
+    point: Point
+
+
+class ObjectAnchor(Model):
+    kind: Literal["object"]
+    target: ObjectId
+    feature: Literal["launch", "contact", "origin", "top_start", "top_end",
+                     "base_start", "base_end", "step_upper", "step_start", "step_end"]
+    step: int = Field(default=1, ge=1, le=128)
+
+
+Anchor = Annotated[FixedAnchor | ObjectAnchor, Field(discriminator="kind")]
+
+
+class DistanceMeasurement(Model):
+    kind: Literal["distance"]
+    id: ObjectId
+    label: str = Field(min_length=1, max_length=60)
+    start: Anchor
+    end: Anchor
+    axis: Literal["horizontal", "vertical", "direct"] = "direct"
+    side: Literal[-1, 1] = 1
+
+
+class AngleMeasurement(Model):
+    kind: Literal["angle"]
+    id: ObjectId
+    label: str = Field(min_length=1, max_length=60)
+    start: Anchor
+    vertex: Anchor
+    end: Anchor
+
+
+Measurement = Annotated[DistanceMeasurement | AngleMeasurement, Field(discriminator="kind")]
+
+
+def check_measurement(measurement, surfaces, particles):
+    objects = {item.id: item for item in [*surfaces, *particles]}
+    anchors = [measurement.start, measurement.end]
+    if isinstance(measurement, AngleMeasurement):
+        anchors.append(measurement.vertex)
+    for anchor in anchors:
+        if not isinstance(anchor, ObjectAnchor):
+            continue
+        obj = objects.get(anchor.target)
+        if obj is None:
+            raise ValueError("Measurement target does not exist")
+        if isinstance(obj, Particle):
+            allowed = {"launch", "contact"}
+        elif isinstance(obj, Staircase):
+            allowed = {"origin", "step_upper", "step_start", "step_end"}
+        else:
+            allowed = {"origin", "top_start", "top_end", "base_start", "base_end"}
+        if anchor.feature not in allowed:
+            raise ValueError(f"Measurement feature {anchor.feature} is not supported by {anchor.target}")
+        if anchor.feature.startswith("step_") and anchor.step > obj.count:
+            raise ValueError("Measurement step exceeds staircase count")
+        if not anchor.feature.startswith("step_") and anchor.step != 1:
+            raise ValueError("Only staircase step features accept a step index")
+
+
 class Scene(Model):
     schema_version: Literal["1"] = "1"
     id: str = Field(default_factory=lambda: str(uuid4()), max_length=64)
@@ -85,6 +148,9 @@ class Scene(Model):
     surfaces: list[Surface] = Field(default_factory=list, max_length=32)
     particles: list[Particle] = Field(default_factory=list, max_length=16)
     annotations: list[Annotation] = Field(default_factory=list, max_length=80)
+    # None preserves default staircase dimensions for existing scene files.
+    # An explicit list (including []) replaces defaults.
+    measurements: list[Measurement] | None = Field(default=None, max_length=24)
 
     @model_validator(mode="after")
     def references(self):
@@ -97,6 +163,11 @@ class Scene(Model):
                 raise ValueError("Annotation target does not exist")
             if annotation.quantity != "highlight" and annotation.target not in particles:
                 raise ValueError("Vector annotations require a particle")
+        measurements = self.measurements or []
+        if len({m.id for m in measurements}) != len(measurements):
+            raise ValueError("Measurement IDs must be unique")
+        for measurement in measurements:
+            check_measurement(measurement, self.surfaces, self.particles)
         return self
 
 
@@ -162,7 +233,13 @@ class SetAnnotation(Model):
     visible: bool = True
 
 
-Command = Annotated[AddSurface | AddWedge | AddParticle | SetLaunch | SetAnnotation, Field(discriminator="op")]
+class SetMeasurement(Model):
+    op: Literal["set_measurement"]
+    measurement: Measurement
+    visible: bool = True
+
+
+Command = Annotated[AddSurface | AddWedge | AddParticle | SetLaunch | SetAnnotation | SetMeasurement, Field(discriminator="op")]
 
 
 class ApplyRequest(Model):
@@ -200,6 +277,19 @@ class Contact(Model):
     velocity: Vector
 
 
+class ResolvedMeasurement(Model):
+    id: str
+    label: str
+    kind: Literal["distance", "angle"]
+    status: Literal["ready", "unavailable"]
+    points: list[Vector] = Field(default_factory=list)
+    value: float | None = None
+    unit: Literal["m", "deg"]
+    axis: Literal["horizontal", "vertical", "direct"] = "direct"
+    side: Literal[-1, 1] = 1
+    reason: str | None = None
+
+
 class Simulation(Model):
     scene_id: str
     revision: int
@@ -208,3 +298,4 @@ class Simulation(Model):
     contact: Contact | None
     samples: list[Sample]
     annotations: list[Annotation]
+    measurements: list[ResolvedMeasurement] = Field(default_factory=list)

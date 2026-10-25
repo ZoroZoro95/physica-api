@@ -7,8 +7,9 @@ import numpy as np
 
 from .models import (
     AddParticle, AddSurface, AddWedge, ApplyRequest, Contact, Ground, Particle, Point,
-    Sample, Scene, SetAnnotation, SetLaunch, SimulateRequest, Simulation, Staircase, Surface, Vector, Wedge,
+    Sample, Scene, SetAnnotation, SetLaunch, SetMeasurement, SimulateRequest, Simulation, Staircase, Surface, Vector, Wedge,
 )
+from .measurements import resolve_measurements
 
 EPS = 1e-8
 
@@ -72,6 +73,10 @@ def apply(request: ApplyRequest) -> Scene:
             scene.annotations = [a for a in scene.annotations if a != command.annotation]
             if command.visible:
                 scene.annotations.append(command.annotation.model_copy(deep=True))
+        elif isinstance(command, SetMeasurement):
+            scene.measurements = [m for m in scene.measurements or [] if m.id != command.measurement.id]
+            if command.visible:
+                scene.measurements.append(command.measurement.model_copy(deep=True))
         # Revalidate after each action; a batch is returned only if every action succeeds.
         scene = Scene.model_validate(scene.model_dump())
     scene.revision += 1
@@ -208,10 +213,12 @@ def simulate(request: SimulateRequest) -> Simulation:
                                    position=sample.position, velocity=sample.velocity)
     duration = earliest.time if earliest else request.max_time
     times = np.linspace(0, duration, request.samples) if duration > 0 else [0.0]
-    return Simulation(scene_id=scene.id, revision=scene.revision, particle_id=particle.id,
+    result = Simulation(scene_id=scene.id, revision=scene.revision, particle_id=particle.id,
                       status="contact" if earliest else "time_limit", contact=earliest,
                       samples=[state(particle, scene.gravity, float(t)) for t in times],
                       annotations=scene.annotations)
+    result.measurements = resolve_measurements(scene, result)
+    return result
 
 
 def stair_cells(surface: Staircase):
