@@ -197,10 +197,11 @@ class Placement(Model):
 
 
 class AddParticle(Model):
+    """Create a particle at exactly one placement. Set its velocity separately with set_launch."""
     op: Literal["add_particle"]
     id: ObjectId
-    position: Point | None = None
-    on_surface: Placement | None = None
+    position: Point | None = Field(default=None, description="Explicit coordinates {x,y}; required unless on_surface is provided. Never leave both placements null.")
+    on_surface: Placement | None = Field(default=None, description="Alternative to position: place on a named ground/wedge at fraction 0..1. Not supported for staircases.")
 
     @model_validator(mode="after")
     def one_position(self):
@@ -210,6 +211,7 @@ class AddParticle(Model):
 
 
 class SetLaunch(Model):
+    """Set the initial velocity of an already added particle. Use angle_deg OR surface_id, not both."""
     op: Literal["set_launch"]
     particle_id: ObjectId
     speed: Annotated[float, Field(ge=0, le=10_000, allow_inf_nan=False)]
@@ -269,12 +271,18 @@ class Sample(Model):
     velocity: Vector
 
 
+class ContactFace(Model):
+    surface_id: ObjectId
+    face: str
+
+
 class Contact(Model):
     time: float
     surface_id: ObjectId
     face: str
     position: Vector
     velocity: Vector
+    touching_faces: list[ContactFace] = Field(default_factory=list)
 
 
 class ResolvedMeasurement(Model):

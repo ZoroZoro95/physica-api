@@ -6,7 +6,7 @@ import math
 import numpy as np
 
 from .models import (
-    AddParticle, AddSurface, AddWedge, ApplyRequest, Contact, Ground, Particle, Point,
+    AddParticle, AddSurface, AddWedge, ApplyRequest, Contact, ContactFace, Ground, Particle, Point,
     Sample, Scene, SetAnnotation, SetLaunch, SetMeasurement, SimulateRequest, Simulation, Staircase, Surface, Vector, Wedge,
 )
 from .measurements import resolve_measurements
@@ -200,6 +200,11 @@ def simulate(request: SimulateRequest) -> Simulation:
             dx, dy = b.x-a.x, b.y-a.y
             for t in contact_times(particle, scene.gravity, a, b):
                 t = max(0.0, t)
+                # A root at the requested endpoint may round a few ulps past it.
+                # Clamp only machine-scale drift, not a genuinely later event.
+                tolerance = 64 * math.ulp(max(t, request.max_time, 1.0))
+                if request.max_time < t <= request.max_time + tolerance:
+                    t = request.max_time
                 if t > request.max_time or (earliest and t >= earliest.time):
                     continue
                 sample = state(particle, scene.gravity, t)
@@ -211,6 +216,24 @@ def simulate(request: SimulateRequest) -> Simulation:
                         continue
                 earliest = Contact(time=t, surface_id=surface.id, face=face,
                                    position=sample.position, velocity=sample.velocity)
+    if earliest:
+        # At a shared vertex the root order can change under mirroring. Report
+        # every face at the same physical point rather than an arbitrary riser.
+        p = earliest.position
+        touching = []
+        for surface in scene.surfaces:
+            for name, a, b in faces(surface):
+                dx, dy = b.x-a.x, b.y-a.y
+                length = math.hypot(dx, dy)
+                along = ((p.x-a.x)*dx + (p.y-a.y)*dy) / length
+                normal = abs((p.x-a.x)*dy - (p.y-a.y)*dx) / length
+                if normal <= EPS and -EPS <= along <= length+EPS:
+                    touching.append(ContactFace(surface_id=surface.id, face=name))
+        touching.sort(key=lambda f: (0 if f.face == 'top' or f.face.startswith('tread:') else 1,
+                                    f.surface_id, f.face))
+        if touching:
+            earliest.touching_faces = touching
+            earliest.surface_id, earliest.face = touching[0].surface_id, touching[0].face
     duration = earliest.time if earliest else request.max_time
     times = np.linspace(0, duration, request.samples) if duration > 0 else [0.0]
     result = Simulation(scene_id=scene.id, revision=scene.revision, particle_id=particle.id,

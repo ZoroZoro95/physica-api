@@ -233,6 +233,30 @@ class AgentTests(unittest.TestCase):
         self.assertEqual(result['status'], 'failed')
         self.assertNotIn('secret-value', json.dumps(result))
 
+    def test_http_failures_keep_safe_diagnostics(self):
+        for status, phrase in [(400, 'rejected'), (401, 'denied access'), (403, 'denied access'), (413, 'too large'),
+                               (429, 'rate limit'), (503, 'temporarily unavailable')]:
+            class ProviderFailure(Exception):
+                status_code = status
+                body = {'error': {'message': 'secret-key-do-not-log'}}
+            def broken(*_):
+                raise ProviderFailure('secret-key-do-not-log')
+            result = run_agent('Question', broken, self.api)
+            self.assertIn(phrase, result['reason'])
+            self.assertEqual(result['trace'], [{'provider_error':'http_error','http_status':status}])
+            self.assertIsNone(result['scene'])
+            self.assertNotIn('secret-key-do-not-log',json.dumps(result))
+
+    def test_model_schema_documents_placement_and_separate_launch(self):
+        schema=tool_definitions({'build_and_simulate'})[0]['function']['parameters']
+        variants=schema['properties']['commands']['items']['oneOf']
+        particle=next(v for v in variants if v['properties']['op']['const']=='add_particle')
+        self.assertIn('set_launch',particle['description'])
+        self.assertIn('Never leave both placements null',particle['properties']['position']['description'])
+        launch=next(v for v in variants if v['properties']['op']['const']=='set_launch')
+        self.assertIn('already added particle',launch['description'])
+        self.assertIn('not both',launch['description'])
+
     def test_rate_limit_is_not_a_configuration_error(self):
         class RateLimitError(Exception):
             pass

@@ -31,6 +31,11 @@ has been supplied. This prototype only receives text.
 
 Use SI units, angles in degrees from +x, +y upward. State every coordinate and
 angle convention in assumptions. Use source labels for objects where available.
+The particle workflow is two commands: add_particle with a non-null position
+{x,y} OR on_surface {surface_id,fraction}, then set_launch with particle_id,
+speed, direction and angle_deg (direction="angle") OR surface_id (a surface
+direction). The command schema already defines this workflow. Missing knowledge
+of tool syntax is not missing physics data; do not ask the user to define the API.
 Wedge origin is its lower-left base; positive signed slope rises to the right.
 Surface-normal launch is outward/upward; tangent launch is left-to-right.
 Stair origin is the TOP departure corner. A one-run approach platform lies behind
@@ -316,6 +321,21 @@ resubmitting the entire recipe, preserving the source physics.
                     messages.append({'role': 'user', 'content': 'The provider rejected your last tool call. Nothing from that response was executed. Return one call to an available tool with arguments matching its JSON schema. Do not return plain text or invent tool names.'})
                     continue
                 return result('failed', 'Provider rejected the model-generated tool call; no unvalidated scene was exported.')
+            status = getattr(exc, 'status_code', None)
+            # Never store raw provider messages or bodies: these can contain
+            # credentials, prompts or upstream HTML. Numeric status is enough
+            # to distinguish configuration, request rejection and outage.
+            if isinstance(status, int) and not isinstance(status, bool) and 400 <= status <= 599:
+                trace.append({'provider_error': 'http_error', 'http_status': status})
+                if status == 429:
+                    return result('failed', 'Model rate limit reached; wait for the provider allowance to reset.')
+                if status >= 500:
+                    return result('failed', 'Model provider is temporarily unavailable; no scene was exported.')
+                if status in (401, 403):
+                    return result('failed', 'Model provider denied access; check server credentials and model permissions.')
+                if status == 413:
+                    return result('failed', 'Model provider rejected the request as too large (HTTP 413); the scene was not generated.')
+                return result('failed', f'Model provider rejected the request (HTTP {status}); inspect the saved validation trace.')
             return result('failed', f'Model request failed ({type(exc).__name__}); check provider configuration.')
         if not isinstance(message, dict):
             return result('failed', 'Malformed model response.')
