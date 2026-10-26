@@ -83,6 +83,20 @@ class GenerationTests(unittest.TestCase):
         self.assertNotIn('private-test-key', response.text)
         self.assertFalse(generation.generation_lock.locked())
 
+    def test_truncated_provider_response_never_executes_tools(self):
+        client = self.provider.return_value.__enter__.return_value
+        choice = client.chat.completions.create.return_value.choices.__getitem__.return_value
+        choice.finish_reason = 'length'
+        response = self.api.post('/v1/generate', json={'question': 'Test'})
+        body = response.json()
+        self.assertEqual(body['status'], 'failed')
+        self.assertIn('response budget', body['reason'])
+        self.assertIsNone(body['scene'])
+        report = json.loads((generation.REPORT_ROOT/body['report_id']/'report.json').read_text())
+        self.assertEqual(report['operations'], [])
+        self.assertEqual(client.chat.completions.create.call_args.kwargs['max_completion_tokens'], 2000)
+        self.assertFalse(generation.generation_lock.locked())
+
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)

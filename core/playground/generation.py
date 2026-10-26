@@ -11,7 +11,7 @@ from fastapi import APIRouter, HTTPException
 from groq import Groq
 from pydantic import Field, ValidationError, field_validator
 
-from .agent import run_agent
+from .agent import ModelOutputTruncated, run_agent
 from .engine import apply, geometry, simulate
 from .models import ApplyRequest, CreateRequest, Model, Scene, SimulateRequest, Simulation
 from .planning import PlannedSimulationRequest, plan_simulation
@@ -67,7 +67,9 @@ def model_completion(client, model):
     def complete(messages, tools):
         result = client.chat.completions.create(model=model, messages=messages,
             tools=tools, tool_choice='required', parallel_tool_calls=False,
-            temperature=0, max_completion_tokens=3000)
+            temperature=0, max_completion_tokens=2000)
+        if result.choices[0].finish_reason == 'length':
+            raise ModelOutputTruncated()
         message = result.choices[0].message
         return {'content': message.content,
             'tool_calls': [call.model_dump() for call in message.tool_calls or []]}

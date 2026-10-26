@@ -177,6 +177,7 @@ class AddSurface(Model):
 
 
 class AddWedge(Model):
+    """Use for a slope specified by angle. Engine derives height without rounding."""
     op: Literal["add_wedge"]
     id: ObjectId
     origin: Point = Field(default_factory=Point)

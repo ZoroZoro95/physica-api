@@ -257,6 +257,34 @@ class AgentTests(unittest.TestCase):
         self.assertIn('already added particle',launch['description'])
         self.assertIn('not both',launch['description'])
 
+    def test_request_size_reports_only_numeric_token_budget(self):
+        class TooLarge(Exception):
+            status_code = 413
+            body = {'error': {'type': 'tokens', 'message':
+                'private-organization Limit 8000, Requested 8401 secret-key'}}
+        def broken(*_):
+            raise TooLarge()
+        result = run_agent('Question', broken, self.api)
+        self.assertEqual(result['trace'], [{'provider_error': 'http_error',
+            'http_status': 413, 'token_limit': 8000, 'requested_tokens': 8401}])
+        self.assertNotIn('private-organization', json.dumps(result))
+        self.assertNotIn('secret-key', json.dumps(result))
+
+    def test_real_rate_limit_keeps_safe_quota_window(self):
+        class RateLimitError(Exception):
+            status_code = 429
+            body = {'error': {'type': 'tokens', 'message':
+                'private-org tokens per day (TPD): Limit 200000, Used 199900, Requested 500 secret-key'}}
+        def broken(*_):
+            raise RateLimitError()
+        result = run_agent('Question', broken, self.api)
+        self.assertEqual(result['trace'], [{'provider_error': 'http_error',
+            'http_status': 429, 'token_limit': 200000, 'used_tokens': 199900,
+            'requested_tokens': 500, 'token_window': 'TPD'}])
+        self.assertNotIn('private-org', json.dumps(result))
+        self.assertNotIn('secret-key', json.dumps(result))
+        self.assertIsNone(result['scene'])
+
     def test_rate_limit_is_not_a_configuration_error(self):
         class RateLimitError(Exception):
             pass

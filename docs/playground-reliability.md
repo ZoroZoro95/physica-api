@@ -101,3 +101,35 @@ remains open. Do not present this milestone as a universal live-model pass.
 The live checker also accepts a direct line as horizontal range when its endpoints
 are at equal height; that representation is geometrically equivalent, not an
 incorrect interpretation. Earlier raw audit results are preserved for review.
+
+## Request-budget follow-up: 2026-10-26
+
+An experiment retaining local JSON-schema references reduced repetition but
+regressed ground-launch tool calls. It was reverted; provider schemas still
+inline references and use the original API validation types. A shorter prompt
+alone also failed the gate: the incline recipe rounded a derived height, and
+finite stairs still encountered HTTP 413. Neither experiment counts as a pass.
+
+The current candidate keeps the compatible schema, reduces redundant prompt
+instructions, and requests 2000 rather than 3000 completion tokens. Given slope
+angles and surface-relative launch directions must use the corresponding engine
+commands rather than model-calculated approximations. This is a general recipe
+rule, not a stored answer or per-question special case.
+
+Provider output ending with `finish_reason=length` is rejected before executing
+any tools. HTTP 413/429 reports retain only numeric `token_limit`,
+`requested_tokens`, `used_tokens` and an allowlisted token window when supplied;
+raw provider messages and
+organization identifiers are not saved. The generation model and bounded
+retry count are unchanged. Long or complex requests can still exceed the budget;
+these guards do not promise arbitrary-length input support.
+
+Verification: 65 offline test methods and the desktop/mobile playground browser
+audit pass. The final live run passed ground and translated cliff cases (reports
+`8d3fd217-89a2-45cf-852e-97e7a2d78887` and
+`1f3bc49a-cd5e-49bc-a1ac-a2410acc412b`). Incline and finite stairs then hit
+provider rate limits (`7c6068ef-fe8a-4a5d-8df5-67d9c7912fef` and
+`01035bd9-8eb8-443a-b0c8-81973f157149`). Further calls were stopped; missing-speed
+and drag cases were not rerun with this final candidate. They passed the preceding
+short-prompt run. The live gate remains NOT READY, not 6/6 passed. After quota
+resets, rerun the complete six-case gate before beginning multi-object expansion.
