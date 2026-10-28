@@ -133,3 +133,51 @@ provider rate limits (`7c6068ef-fe8a-4a5d-8df5-67d9c7912fef` and
 and drag cases were not rerun with this final candidate. They passed the preceding
 short-prompt run. The live gate remains NOT READY, not 6/6 passed. After quota
 resets, rerun the complete six-case gate before beginning multi-object expansion.
+
+## Provider payload and tool semantics: 2026-10-29
+
+The resumed baseline exposed two distinct failures. A gravity annotation targeted
+a ground surface; validation rejected it and the immediate repair hit TPM limits
+(report `655ab588-919f-4898-8432-20be18144e96`: limit 8000, used 7029).
+A separate short drag request was rejected with HTTP 413: 8076 requested tokens
+against an 8000-token limit (`06f1303b-ce65-499d-9570-9d5a913d4bcb`). Waiting for a
+quota reset alone cannot fix a request larger than that limit.
+
+The model-facing schemas now omit repeated scalar bounds and identifier patterns,
+but retain fields, types, enums, required properties and extra-field rejection.
+The API/Pydantic schemas and runtime validation are unchanged: IDs, numerical
+bounds and reference constraints still reject invalid recipes. Regression tests
+explicitly cover this boundary. Local references remain expanded for provider
+compatibility. Validation feedback excludes input dumps and documentation URLs.
+
+Tool guidance now states that vectors belong to particles, coordinate origins
+may be chosen when relative geometry is known, and direct distance between two
+points on a straight incline is their along-slope distance. No question answer,
+solver formula or special-case geometry was added.
+
+Evidence: 67 offline test methods and the desktop/mobile browser audit passed.
+The compact-schema live sweep passed 5/6 with no 413/429 failures; the incline
+incorrectly requested clarification about direct distance
+(`90539314-9f55-41ad-83c7-26adc139fa54`). After clarifying that measurement contract,
+the targeted incline recheck passed (`ce66a49e-e23a-4807-b502-80ab99b377e9`).
+The other successful sweep reports are:
+
+- Ground: `b3478be9-0005-47f6-9f5a-040aceb9a682`
+- Translated cliff: `e6cc89a7-4ff5-4d66-97fe-aba94664915e`
+- Finite stairs: `aeb2cf60-e93a-4945-8dfb-7981791345ee`
+- Missing speed: `9d87937d-32dc-41b2-a63f-5a7756d40078`
+- Unsupported drag: `320bf179-86cd-4b0a-ad73-b8a6f658d043`
+
+The subsequent full sweep on the final prompt passed all 6/6 cases:
+
+- Ground: `a5da6eb6-7a05-44c9-801c-3effbd5fcba2`
+- Translated cliff: `1f6eac57-2d62-4bea-8fba-4eac09c3f911`
+- Incline: `c04bb99b-d210-4d40-8baa-f0e94a2934ff`
+- Finite stairs: `16ab0ba3-a591-463b-9d43-5855abad3b36`
+- Missing speed: `481529e6-7695-4afa-9d8c-0d34fb6cf99a`
+- Unsupported drag: `9e573480-f7b4-4186-920b-845e03170190`
+
+This passes the bounded live gate, not repeated-run reliability or general JEE
+coverage. The next engine milestone is a shared
+timeline for multiple particles; storing multiple particles alone is not support
+for relative motion, delayed launch or collision response.

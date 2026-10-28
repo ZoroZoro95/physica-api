@@ -59,7 +59,13 @@ class LocalPlaygroundAPI:
             else:
                 return httpx.Response(404, json={'detail': 'Unknown playground operation'}, request=request)
             return httpx.Response(200, json=result.model_dump(mode='json'), request=request)
-        except (ValueError, ValidationError) as exc:
+        except ValidationError as exc:
+            detail = '; '.join(
+                ('.'.join(map(str, error['loc'])) or 'scene') + ': ' + error['msg']
+                for error in exc.errors(include_input=False, include_url=False, include_context=False)
+            )
+            return httpx.Response(422, json={'detail': detail[:2000]}, request=request)
+        except ValueError as exc:
             return httpx.Response(422, json={'detail': str(exc)[:2000]}, request=request)
 
 

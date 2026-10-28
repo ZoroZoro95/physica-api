@@ -73,7 +73,7 @@ class Particle(Model):
 
 
 class Annotation(Model):
-    target: ObjectId
+    target: ObjectId = Field(description="Existing particle ID for velocity, velocity_x, velocity_y or gravity. Only highlight may target a surface.")
     quantity: Literal["velocity", "velocity_x", "velocity_y", "gravity", "highlight"]
 
 
@@ -99,7 +99,8 @@ class DistanceMeasurement(Model):
     label: str = Field(min_length=1, max_length=60)
     start: Anchor
     end: Anchor
-    axis: Literal["horizontal", "vertical", "direct"] = "direct"
+    axis: Literal["horizontal", "vertical", "direct"] = Field(default="direct",
+        description="horizontal/vertical measure coordinate differences; direct measures straight-line length, including distance along a straight incline when both anchors lie on it.")
     side: Literal[-1, 1] = 1
 
 

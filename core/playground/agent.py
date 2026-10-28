@@ -26,8 +26,12 @@ relationships. No invented speeds, gravity, angles or symbolic numerical values.
 This input is text only; do not invent a missing 'as shown' diagram.
 
 Use SI, +y upward, degrees from +x, source object labels. Disclose coordinates,
+IDs start with a letter and use letters/digits/underscore/hyphen, at most 64
+characters. Numeric bounds are enforced by the API; invalid recipes are rejected.
 angle conventions and any illustrative ground extent, depth, count or thickness
 in assumptions. Preserve all given values and finite boundaries.
+You may choose and disclose the coordinate origin. Missing absolute coordinates
+are not missing physics when the relative geometry is fully specified.
 add_particle needs position {x,y} OR on_surface {surface_id,fraction}, never
 both null; then set_launch sets velocity. Schema defines syntax, not the user.
 When slope is given as an angle, MUST use add_wedge with that signed angle,
@@ -45,9 +49,12 @@ replaces legacy defaults. Use short labels. Particle anchors: launch/contact;
 ground/wedge: origin, base_start/end, top_start/end (left-to-right);
 stairs: origin, step_upper/start/end with 1-based step. Fixed point anchors must
 come from givens; never guess contact coordinates or measurement answers.
-Distance axis: horizontal, vertical or direct (along a line). Angle uses
-start/vertex/end; engine supplies the smaller angle. Contact stays unavailable
+Distance axis: horizontal, vertical or direct (along a line).
+For two points on a straight slope, direct IS the along-slope distance; no
+additional along-surface measurement tool or user clarification is needed.
+Angle uses start/vertex/end; engine supplies the smaller angle. Contact stays unavailable
 until detected. Use object launch/contact anchors for flight distances.
+Vector annotations target particles, NEVER surfaces, including gravity arrows.
 
 continuing_staircases lists surfaces the host may extend to the time horizon.
 Use only for stated indefinite stairs or a disclosed assumption when no finite
@@ -131,6 +138,8 @@ DESCRIPTIONS = {
 def tool_definitions(names=None):
     # Schemas come from the same validation types as the API, not a second
     # hand-maintained catalogue. Inline local refs for provider compatibility.
+    # Repeated scalar bounds/patterns inflate the provider request; the same
+    # Pydantic types still enforce every bound when the tool is executed.
     def inline(value, definitions):
         if isinstance(value, list):
             return [inline(v, definitions) for v in value]
@@ -139,7 +148,8 @@ def tool_definitions(names=None):
         if "$ref" in value:
             return inline(definitions[value["$ref"].split("/")[-1]], definitions)
         return {k: inline(v, definitions) for k, v in value.items()
-                if k not in ("$defs", "discriminator", "title")}
+                if k not in ("$defs", "discriminator", "title", "minimum", "maximum",
+                             "exclusiveMinimum", "exclusiveMaximum", "pattern")}
 
     names = WORKFLOW_TOOLS if names is None else names
     return [{"type": "function", "function": {"name": name, "description": DESCRIPTIONS[name],

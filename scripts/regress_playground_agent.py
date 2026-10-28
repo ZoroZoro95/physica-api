@@ -310,6 +310,25 @@ class AgentTests(unittest.TestCase):
         self.assertIn('set_launch', raw)
         self.assertEqual(len(tools), 4)
 
+    def test_compact_schema_keeps_structure_and_runtime_bounds(self):
+        tools = tool_definitions({'build_and_simulate', 'finish_scene'})
+        raw = json.dumps(tools, separators=(',', ':'))
+        self.assertLess(len(raw), 11000)
+        self.assertNotIn('"pattern":', raw)
+        self.assertIn('"additionalProperties":false', raw)
+        self.assertIn('"required":', raw)
+        session = ToolSession(self.api)
+        for gravity in [-1, 0, 10001]:
+            with self.assertRaises(ValueError):
+                session.execute('create_scene', json.dumps({'gravity': gravity}))
+        session.execute('create_scene', json.dumps({'gravity': 10}))
+        for particle in [{'id': 'bad id', 'position': {'x': 0, 'y': 0}},
+                         {'id': 'P', 'position': {'x': 100001, 'y': 0}}]:
+            with self.assertRaises(ValueError):
+                session.execute('apply_commands', json.dumps({'commands':
+                    [{'op': 'add_particle', **particle}]}))
+        self.assertEqual(session.scene.particles, [])
+
     def test_stale_api_revision_cannot_finish(self):
         real = self.api
         class StaleAPI:

@@ -97,6 +97,21 @@ class GenerationTests(unittest.TestCase):
         self.assertEqual(client.chat.completions.create.call_args.kwargs['max_completion_tokens'], 2000)
         self.assertFalse(generation.generation_lock.locked())
 
+    def test_vector_surface_target_has_concise_repair_feedback(self):
+        from core.playground.models import Scene
+        adapter = generation.LocalPlaygroundAPI()
+        body = recipe()
+        body['commands'].append({'op': 'set_annotation', 'annotation':
+            {'target': 'steps', 'quantity': 'gravity'}})
+        response = adapter.post('/v1/scenes/apply', json={
+            'scene': Scene().model_dump(mode='json'), 'commands': body['commands']})
+        self.assertEqual(response.status_code, 422)
+        detail = response.json()['detail']
+        self.assertIn('Vector annotations require a particle', detail)
+        self.assertNotIn('input_value', detail)
+        self.assertNotIn('pydantic.dev', detail)
+        self.assertLess(len(detail), 100)
+
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)
