@@ -26,7 +26,7 @@ def default_measurements(scene, particle_id):
     return result
 
 
-def resolve_anchor(anchor, scene, simulation):
+def resolve_anchor(anchor, scene, simulation, simulations=None):
     if isinstance(anchor, FixedAnchor):
         return Vector(x=anchor.point.x, y=anchor.point.y)
     obj = next(item for item in [*scene.surfaces, *scene.particles] if item.id == anchor.target)
@@ -34,9 +34,10 @@ def resolve_anchor(anchor, scene, simulation):
     if isinstance(obj, Particle):
         if feature == 'launch':
             return Vector(x=obj.position.x, y=obj.position.y)
-        if simulation.particle_id != obj.id or simulation.contact is None:
+        source = simulations.get(obj.id) if simulations is not None else simulation
+        if source is None or source.particle_id != obj.id or source.contact is None:
             raise ValueError('No contact available for this particle in this simulation')
-        return simulation.contact.position
+        return source.contact.position
     if isinstance(obj, Ground):
         return Vector(x=obj.x_max if feature.endswith('end') else obj.x_min, y=obj.y)
     x, y = obj.origin.x, obj.origin.y
@@ -51,7 +52,7 @@ def resolve_anchor(anchor, scene, simulation):
                   y=y + (obj.height if feature.startswith('top_') and end == obj.rising else 0))
 
 
-def resolve_measurements(scene, simulation):
+def resolve_measurements(scene, simulation, simulations=None):
     specs = scene.measurements if scene.measurements is not None else default_measurements(scene, simulation.particle_id)
     result = []
     for spec in specs:
@@ -59,9 +60,9 @@ def resolve_measurements(scene, simulation):
                     unit='deg' if isinstance(spec, AngleMeasurement) else 'm',
                     axis=getattr(spec, 'axis', 'direct'), side=getattr(spec, 'side', 1))
         try:
-            a, b = resolve_anchor(spec.start, scene, simulation), resolve_anchor(spec.end, scene, simulation)
+            a, b = resolve_anchor(spec.start, scene, simulation, simulations), resolve_anchor(spec.end, scene, simulation, simulations)
             if isinstance(spec, AngleMeasurement):
-                v = resolve_anchor(spec.vertex, scene, simulation)
+                v = resolve_anchor(spec.vertex, scene, simulation, simulations)
                 ax, ay, bx, by = a.x-v.x, a.y-v.y, b.x-v.x, b.y-v.y
                 if min(math.hypot(ax, ay), math.hypot(bx, by)) < 1e-9:
                     raise ValueError('An angle requires two nonzero rays')

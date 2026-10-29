@@ -5,7 +5,8 @@ from fastapi.responses import JSONResponse
 from pydantic import ValidationError
 
 from .engine import apply, geometry, simulate
-from .models import ApplyRequest, CreateRequest, Scene, SimulateRequest, Simulation
+from .models import ApplyRequest, CreateRequest, Scene, SimulateRequest, Simulation, SceneSimulateRequest, SceneSimulation
+from .ensemble import simulate_scene
 from .planning import PlannedSimulation, PlannedSimulationRequest, plan_simulation
 from .generation import router as generation_router
 
@@ -53,6 +54,14 @@ def run_simulation(request: SimulateRequest):
 def render_geometry(scene: Scene):
     try:
         return {"scene_id": scene.id, "revision": scene.revision, "meshes": geometry(scene)}
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@app.post('/v1/simulations/scene', response_model=SceneSimulation)
+def run_scene_simulation(request: SceneSimulateRequest):
+    try:
+        return simulate_scene(request)
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 

@@ -309,3 +309,17 @@ class Simulation(Model):
     samples: list[Sample]
     annotations: list[Annotation]
     measurements: list[ResolvedMeasurement] = Field(default_factory=list)
+
+
+class SceneSimulateRequest(Model):
+    scene: Scene
+    max_time: Annotated[float, Field(gt=0, le=300, allow_inf_nan=False)] = 10
+    samples: int = Field(default=121, ge=2, le=1001)
+
+
+class SceneSimulation(Model):
+    scene_id: str
+    revision: int
+    duration: float
+    interaction: Literal['independent'] = 'independent'
+    tracks: list[Simulation]
