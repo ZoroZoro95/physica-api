@@ -17,12 +17,13 @@ CASES = [
     dict(id='finite_stairs', question='A point particle launches horizontally right at 10 m/s from the top departure corner (0,0) of a staircase descending right. There are exactly 5 steps, each 1 m high and 1 m wide. No other surfaces. g=9.8 m/s^2. Simulate for 3 seconds. Do not extend this finite staircase.'),
     dict(id='missing_speed', question='A point particle is launched horizontally from 45 m above level ground. Use g=10 m/s^2. Build its trajectory until contact. The launch speed is not specified.'),
     dict(id='drag', question='A ball launches from ground at 20 m/s and 45 degrees. Use g=10 m/s^2 and INCLUDE linear air drag with drag acceleration equal to -0.2 times its velocity. Simulate until landing.'),
+    dict(id='delayed_launch', question='A particle is held at (0,20) metres until absolute time t=2 seconds, then launched horizontally at 5 m/s. Ground is y=0, g=10 m/s^2, no drag. Preserve the initial waiting period and simulate from t=0 until impact.'),
 ]
 
 
 def check(case, response):
     id = case['id']
-    if id in ('missing_speed','drag'):
+    if id in ('missing_speed','drag','delayed_launch'):
         expected = 'needs_clarification' if id == 'missing_speed' else 'unsupported'
         assert response['status'] == expected, response.get('reason')
         assert response.get('scene') is None and response.get('simulation') is None

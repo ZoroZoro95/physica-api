@@ -7,7 +7,7 @@ import numpy as np
 
 from .models import (
     AddParticle, AddSurface, AddWedge, ApplyRequest, Contact, ContactFace, Ground, Particle, Point,
-    Sample, Scene, SetAnnotation, SetLaunch, SetMeasurement, SimulateRequest, Simulation, Staircase, Surface, Vector, Wedge,
+    Sample, Scene, ScheduleLaunchRequest, SetAnnotation, SetLaunch, SetMeasurement, SimulateRequest, Simulation, Staircase, Surface, Vector, Wedge,
 )
 from .measurements import resolve_measurements
 
@@ -81,6 +81,13 @@ def apply(request: ApplyRequest) -> Scene:
         scene = Scene.model_validate(scene.model_dump())
     scene.revision += 1
     return scene
+
+
+def schedule_launch(request: ScheduleLaunchRequest) -> Scene:
+    scene = request.scene.model_copy(deep=True)
+    find(scene.particles, request.particle_id).launch_time = request.launch_time
+    scene.revision += 1
+    return Scene.model_validate(scene.model_dump())
 
 
 def state(particle: Particle, gravity: float, t: float) -> Sample:
@@ -188,6 +195,35 @@ def enters_at_start(particle: Particle, surface: Surface, g: float) -> bool:
 
 
 def simulate(request: SimulateRequest) -> Simulation:
+    particle = find(request.scene.particles, request.particle_id)
+    delay = particle.launch_time
+    if delay > request.max_time:
+        if not particle.launch_set:
+            raise ValueError("Set the launch explicitly; use speed=0 for release from rest")
+        for surface in request.scene.surfaces:
+            if inside(particle, surface):
+                raise ValueError(f"Particle starts inside solid surface: {surface.id}")
+        result = Simulation(scene_id=request.scene.id, revision=request.scene.revision,
+            particle_id=particle.id, status='waiting', launch_time=delay, contact=None,
+            samples=[Sample(t=t, position=Vector(x=particle.position.x, y=particle.position.y),
+                velocity=Vector(x=0, y=0)) for t in [0.0, request.max_time]],
+            annotations=request.scene.annotations)
+        result.measurements = resolve_measurements(request.scene, result)
+        return result
+    # The public horizon is absolute scene time. A launch exactly at its end
+    # has a zero-duration flight; the internal solver handles that boundary.
+    flight_request = request.model_copy(update={'max_time': request.max_time-delay})
+    result = _simulate_flight(flight_request)
+    result.launch_time = delay
+    if delay:
+        for sample in result.samples:
+            sample.t = min(request.max_time, sample.t + delay)
+        if result.contact:
+            result.contact.time = min(request.max_time, result.contact.time + delay)
+    return result
+
+
+def _simulate_flight(request: SimulateRequest) -> Simulation:
     scene = request.scene
     particle = find(scene.particles, request.particle_id)
     if not particle.launch_set:

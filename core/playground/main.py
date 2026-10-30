@@ -4,8 +4,8 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from pydantic import ValidationError
 
-from .engine import apply, geometry, simulate
-from .models import ApplyRequest, CreateRequest, Scene, SimulateRequest, Simulation, SceneSimulateRequest, SceneSimulation
+from .engine import apply, geometry, simulate, schedule_launch
+from .models import ApplyRequest, CreateRequest, Scene, SimulateRequest, Simulation, SceneSimulateRequest, SceneSimulation, ScheduleLaunchRequest
 from .ensemble import simulate_scene
 from .planning import PlannedSimulation, PlannedSimulationRequest, plan_simulation
 from .generation import router as generation_router
@@ -40,6 +40,14 @@ def apply_commands(request: ApplyRequest):
 @app.post("/v1/scenes/validate", response_model=Scene)
 def validate_scene(scene: Scene):
     return scene
+
+
+@app.post('/v1/scenes/schedule', response_model=Scene)
+def set_launch_time(request: ScheduleLaunchRequest):
+    try:
+        return schedule_launch(request)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
 @app.post("/v1/simulations", response_model=Simulation)

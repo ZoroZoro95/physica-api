@@ -40,7 +40,7 @@ def plan_simulation(request: PlannedSimulationRequest) -> PlannedSimulation:
             raise ValueError("Continuing extent is supported only for an existing staircase")
         sign = 1 if surface.direction == 'right' else -1
         start = sign * (particle.position.x - surface.origin.x)
-        end = start + sign * particle.velocity.x * request.max_time
+        end = start + sign * particle.velocity.x * max(0, request.max_time-particle.launch_time)
         # Include the vertical face at an exact end-of-tread coordinate. The
         # artificial closing face of a finite extrusion must be beyond the path.
         needed = max(surface.count, ceil(max(0, start, end) / surface.run) + 1)

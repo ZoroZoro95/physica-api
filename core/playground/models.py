@@ -70,6 +70,7 @@ class Particle(Model):
     position: Point
     velocity: Point = Field(default_factory=Point)
     launch_set: bool = False
+    launch_time: Annotated[float, Field(ge=0, le=300, allow_inf_nan=False)] = 0
 
 
 class Annotation(Model):
@@ -255,6 +256,12 @@ class CreateRequest(Model):
     gravity: Positive = 9.8
 
 
+class ScheduleLaunchRequest(Model):
+    scene: Scene
+    particle_id: ObjectId
+    launch_time: Annotated[float, Field(ge=0, le=300, allow_inf_nan=False)]
+
+
 class SimulateRequest(Model):
     scene: Scene
     particle_id: ObjectId
@@ -304,7 +311,8 @@ class Simulation(Model):
     scene_id: str
     revision: int
     particle_id: ObjectId
-    status: Literal["contact", "time_limit"]
+    status: Literal["contact", "time_limit", "waiting"]
+    launch_time: Annotated[float, Field(ge=0, le=300, allow_inf_nan=False)] = 0
     contact: Contact | None
     samples: list[Sample]
     annotations: list[Annotation]

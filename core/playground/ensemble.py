@@ -1,4 +1,4 @@
-"""Simultaneous independent flights on one clock, ending at each first contact."""
+"""Independent scheduled flights on one clock, ending at each first contact."""
 from .engine import simulate
 from .measurements import resolve_measurements
 from .models import SceneSimulateRequest, SceneSimulation, SimulateRequest
