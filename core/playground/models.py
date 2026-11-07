@@ -325,9 +325,18 @@ class SceneSimulateRequest(Model):
     samples: int = Field(default=121, ge=2, le=1001)
 
 
+class Encounter(Model):
+    particle_ids: tuple[ObjectId, ObjectId]
+    kind: Literal['meeting', 'coincident']
+    time: float
+    end_time: float
+    position: Vector
+
+
 class SceneSimulation(Model):
     scene_id: str
     revision: int
     duration: float
     interaction: Literal['independent'] = 'independent'
     tracks: list[Simulation]
+    encounters: list[Encounter] = Field(default_factory=list)

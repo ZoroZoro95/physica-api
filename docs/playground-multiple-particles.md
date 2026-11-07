@@ -97,6 +97,32 @@ frontend production build passed. The targeted live `delayed_launch` case return
 `unsupported` without a scene (report `df9ed79a-d131-4e9f-9edb-18b0034c3e72`).
 The other six live-provider cases were not rerun for this checkpoint.
 
-Next: add mathematically verified encounter events before exposing scheduled
-multi-body recipes to the AI interpreter. Do not infer collision
-response from overlapping rendered spheres.
+## Free-flight encounters
+
+`POST /v1/simulations/scene` now also returns `encounters`. These are analytical
+point-particle results, not intersections of sampled paths or rendered spheres.
+Each entry has sorted `particle_ids`, `kind`, absolute `time`, `end_time`, and
+the position at `time`.
+
+- `meeting`: both particles occupy the same position at one instant;
+  `end_time` equals `time`.
+- `coincident`: both follow the same motion throughout their overlapping flight
+  interval. `time` and `end_time` delimit that interval.
+- Search starts only after both launches and stops at the earlier first surface
+  contact or requested horizon, including endpoints. Waiting bodies and held
+  impact markers are excluded.
+- Equal gravity cancels in relative motion. The detector solves the remaining
+  linear equation and verifies both coordinates, independent of sample count.
+  Numerical equality uses a 1e-9 metre floor or 64 coordinate ULPs, whichever is
+  larger; endpoint clamping is limited to 64 time ULPs.
+- Results are sorted by time, then particle IDs. `interaction` remains
+  `independent`: velocities and paths do not change at a meeting.
+
+The playground UI does not display these events yet. The AI interpreter still
+rejects multi-body/delayed-launch requests; collision response, closest approach,
+and solving an unknown interception speed/angle are not implemented.
+
+Run `python scripts/regress_playground_encounters.py` for encounter checks,
+including 100 seeded constructed meetings with varied gravity, speed, position
+and launch time. Next: surface these verified events in shared-clock playback
+before exposing multi-body recipes to the AI interpreter.
