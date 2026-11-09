@@ -6,7 +6,9 @@ This is not yet an interacting-body solver or a multi-body AI interpreter.
 ## Contract
 
 `POST /v1/simulations/scene` accepts `scene`, `max_time` (0 < t <= 300 s),
-and `samples` (2..1001 per track). The existing scene limit is 16 particles.
+and `samples` (2..1001 base samples per track). Exact encounter start/end states
+are additionally inserted into participating tracks, so returned sample counts
+may exceed this base count. The existing scene limit is 16 particles.
 Every particle must have an explicitly set launch, including speed zero for a
 release. Empty scenes or any invalid particle reject the whole request.
 
@@ -118,11 +120,25 @@ the position at `time`.
 - Results are sorted by time, then particle IDs. `interaction` remains
   `independent`: velocities and paths do not change at a meeting.
 
-The playground UI does not display these events yet. The AI interpreter still
+The playground lists these events under Free-flight meetings. Selecting a meeting
+pauses and seeks to its exact time without changing particle selection or camera.
+Moving-together intervals have separate start/end controls. Resimulation replaces
+the event list, and single-particle scenes do not retain prior events. Older API
+responses without the field show data unavailable, not a false no-meetings claim.
+The AI interpreter still
 rejects multi-body/delayed-launch requests; collision response, closest approach,
 and solving an unknown interception speed/angle are not implemented.
 
 Run `python scripts/regress_playground_encounters.py` for encounter checks,
 including 100 seeded constructed meetings with varied gravity, speed, position
-and launch time. Next: surface these verified events in shared-clock playback
-before exposing multi-body recipes to the AI interpreter.
+and launch time. The web audit `node scripts/audit-playground-encounters.mjs`
+checks exact rendered positions, pause/resume, camera and selection preservation,
+reset, changed schedules, interval navigation and desktop/mobile layout. Screenshots
+and reports are saved in `/tmp/physica-encounters`.
+
+2026-11-10 checkpoint: 94 backend tests, encounter/ensemble/delayed-launch
+desktop-mobile browser audits, and frontend production build passed. No live
+AI-provider suite or deployment was run for this UI integration.
+
+Next: expose scheduled multi-body recipes to the AI interpreter with source-value
+validation and live acceptance tests; do not expand collision-response claims.

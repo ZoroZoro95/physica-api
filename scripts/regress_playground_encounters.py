@@ -45,6 +45,9 @@ class EncounterTests(unittest.TestCase):
         event = self.run_scene(3)['encounters'][0]
         self.assertEqual(event['time'], 2)
         self.assertEqual(event['position'], dict(x=4, y=30))
+        for track in self.run_scene(3)['tracks']:
+            exact = next(s for s in track['samples'] if s['t'] == event['time'])
+            self.assertEqual(exact['position'], event['position'])
 
     def test_path_crossing_at_different_times_is_not_meeting(self):
         self.scene['particles'][1]['position']['y'] += 1
