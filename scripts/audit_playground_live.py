@@ -23,14 +23,49 @@ CASES = [
 ]
 
 
+def provider_blocked(response, http_status):
+    if http_status in (429, 502, 503, 504):
+        return True
+    if not isinstance(response, dict):
+        return False
+    reason = response.get('reason', '')
+    return response.get('status') == 'failed' and reason.startswith((
+        'Model rate limit reached', 'Model provider', 'Model request failed',
+        'Provider rejected', 'Model output exceeded'))
+
+
+def check_candidate(response):
+    """A plausible numerical answer cannot excuse a stale or partial scene."""
+    scene, selected = response['scene'], response['simulation']
+    ids = {p['id'] for p in scene['particles']}
+    assert len(ids) == len(scene['particles']) and ids, 'Duplicate or empty particle IDs'
+    assert selected['particle_id'] in ids, 'Selected particle missing from scene'
+    ensemble = response.get('ensemble')
+    if len(ids) > 1:
+        assert ensemble is not None, 'Missing ensemble'
+    tracks = ensemble['tracks'] if ensemble else [selected]
+    assert len(tracks) == len(ids) and {t['particle_id'] for t in tracks} == ids, 'Missing or duplicate particle tracks'
+    for track in [selected, *tracks]:
+        assert (track['scene_id'], track['revision']) == (scene['id'], scene['revision']), 'Stale simulation'
+        assert track['samples'], 'Empty simulation samples'
+        particle = next(p for p in scene['particles'] if p['id'] == track['particle_id'])
+        assert track.get('launch_time',0) == particle.get('launch_time',0), 'Track lost launch schedule'
+    if ensemble:
+        assert (ensemble['scene_id'],ensemble['revision']) == (scene['id'],scene['revision']), 'Stale ensemble'
+        assert ensemble['interaction'] == 'independent', 'Unexpected body interaction'
+        assert selected == next(t for t in tracks if t['particle_id']==selected['particle_id']), 'Selected track differs from ensemble'
+
+
 def check(case, response):
     id = case['id']
     if id in ('missing_speed','drag','collision_response'):
         expected = 'needs_clarification' if id == 'missing_speed' else 'unsupported'
         assert response['status'] == expected, response.get('reason')
         assert response.get('scene') is None and response.get('simulation') is None
+        assert response.get('ensemble') is None, 'Declined request exported an ensemble'
         return
     assert response['status'] == 'review', response.get('reason')
+    check_candidate(response)
     s, sim = response['scene'], response['simulation']
     if id == 'two_particles':
         assert len(s['particles']) == 2
@@ -130,6 +165,9 @@ def main():
         root=Path(__file__).resolve().parents[1]/'questions/debug_reports/playground-agent'
         for original in json.loads(args.replay.read_text()):
             row=dict(case=original['case'],report_id=original.get('report_id'),original_status=original['status'])
+            if original['status'] == 'not_run':
+                results.append({**row, 'status': 'not_run', 'error': original.get('error', 'Not executed')})
+                continue
             try:
                 report_id=str(UUID(row['report_id']))
                 report=json.loads((root/report_id/'report.json').read_text())
@@ -155,6 +193,7 @@ def main():
         for index, case in enumerate(cases):
             if index: time.sleep(args.interval)
             row=dict(case=case['id'],question=case['question'])
+            data = None
             try:
                 r=client.post(args.api_url.rstrip('/')+'/v1/generate',json={'question':case['question']})
                 row['http_status']=r.status_code
@@ -165,9 +204,19 @@ def main():
                 row['status']='passed'
             except (AssertionError,ValueError,httpx.HTTPError,KeyError,TypeError,StopIteration) as exc:
                 row.update(status='failed',error=str(exc))
+            blocked = provider_blocked(data, row.get('http_status'))
+            if blocked:
+                row['failure_kind'] = 'provider_blocked'
             results.append(row)
+            if blocked:
+                results.extend(dict(case=pending['id'], question=pending['question'], status='not_run',
+                    error='Stopped after provider failure; rerun these cases after recovery.')
+                    for pending in cases[index+1:])
             args.output.write_text(json.dumps(results,indent=2)+'\n')
             print(json.dumps(row),flush=True)
+            if blocked:
+                print('Stopped: provider unavailable or request budget exhausted; remaining cases are not_run.', flush=True)
+                break
     return int(any(row['status']!='passed' for row in results))
 
 

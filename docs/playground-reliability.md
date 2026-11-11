@@ -1,5 +1,25 @@
 # Playground reliability gate
 
+## Latest checkpoint: 2026-11-11
+
+The current nine-case live gate is **incomplete**, not passed. On the current
+multi-particle prompt, ground and translated cliff passed again; incline failed
+before physics execution (provider tool rejection followed by TPM throttling).
+An isolated incline recheck was also rate-limited. No further provider calls were
+made. The remaining six cases were not run in this sweep; earlier targeted passes
+are historical evidence, not substitutes for this run.
+
+Reports: ground `d104662c-83b8-4042-bf33-63517f4b5d97`, cliff
+`e263ecc9-0022-470c-867b-788dc952cec0`, incline
+`f37b657c-bba2-4246-9d37-64b88c6ec7d6`, isolated incline
+`eb8fbb1b-03b6-41b8-858b-6d3536e8cff8`.
+The first two also pass the strengthened offline replay checker.
+
+102 offline backend test methods pass, including audit mutation tests. This
+checkpoint changes validation/reporting only, not the physics or UI. Next:
+diagnose the provider's incline tool rejection once quota allows, then rerun the
+complete gate. Do not infer general JEE coverage from these nine selected cases.
+
 This gate covers numeric, single-point-particle flight under constant downward
 gravity against stationary finite ground, wedges and stairs. It does not certify
 all kinematics questions, images, symbolic solving, drag, sliding or interacting
@@ -74,6 +94,10 @@ Two rendering regressions found by this sweep were repaired:
 This is separate from deterministic physics verification and uses the locally
 configured provider. It is opt-in, bounded to nine cases, spaced by default, with
 no automatic retries or fallback model. It keeps failures in its output.
+Provider failures stop the sweep rather than spending more requests against a
+blocked service. Remaining cases are explicitly `not_run`, and the command exits
+nonzero. Use `--case` to run outstanding cases after recovery. A partial/replayed
+run is not a complete gate pass.
 
 ```sh
 python scripts/audit_playground_live.py --live \
@@ -86,6 +110,11 @@ two independent particles with different launch times; unsupported collision res
 The checker validates
 source values, direction, finite extents, horizon, physical result and requested
 engine-backed measurements. Model status `review` alone is not a pass.
+It also checks scene/revision identity, complete unique particle tracks, preserved
+launch schedules, and agreement between the selected track and its ensemble.
+Declined requests must not export simulation data. Offline mutation tests in
+`regress_playground_live_checks.py` verify these verdicts against intentionally
+altered real-engine fixtures, including the no-further-calls provider stop rule.
 
 The first 2026-10-26 run passed five of six. Finite stairs failed before simulation:
 the model returned a null position, followed by an upstream request failure.
