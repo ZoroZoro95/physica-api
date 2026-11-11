@@ -1,6 +1,22 @@
 # Playground reliability gate
 
-## Latest checkpoint: 2026-11-11
+## Latest checkpoint: 2026-11-12
+
+106 offline tests pass. Declarative placement/direction guidance fixed one
+observed rounded-coordinate recipe error, and the targeted incline check passed
+(`14974b4d-7970-4d05-8ecd-6c188de28989`). This is not repeatable acceptance yet.
+
+The final full sweep passed ground (`de7c4ddb-519c-4639-a394-fca724d4c5c4`) and
+cliff (`24b08513-f650-4897-add2-c738aec14897`), then stopped at incline
+(`d986234b-5c24-49b5-b0f0-43b28b22a193`). Its provider rejection had an
+unrecognized call envelope; the bounded repair then hit TPM throttling. The six
+remaining cases are explicitly not_run. The rejected envelope was not persisted
+or executed. Full live acceptance remains blocked; no deployment was performed.
+Next: diagnose provider call-envelope compatibility without increasing retries
+or weakening scene validation. Do not count the isolated incline pass as a full
+suite pass.
+
+## Previous checkpoint: 2026-11-11
 
 The current nine-case live gate is **incomplete**, not passed. On the current
 multi-particle prompt, ground and translated cliff passed again; incline failed
@@ -115,6 +131,28 @@ launch schedules, and agreement between the selected track and its ensemble.
 Declined requests must not export simulation data. Offline mutation tests in
 `regress_playground_live_checks.py` verify these verdicts against intentionally
 altered real-engine fixtures, including the no-further-calls provider stop rule.
+
+### Declarative geometry follow-up: 2026-11-12
+
+A targeted incline attempt revealed a concrete recipe error: the model placed the
+particle using rounded computed coordinates instead of `on_surface`. That point
+was slightly inside the wedge, so simulation rejected it; the attempted repair
+then hit the provider TPM limit. Report `52bffa55-7059-46eb-bfcf-429852d4e06e`
+preserves the rejected recipe. This does not establish the cause of the earlier
+provider-level rejection, whose details were unavailable.
+
+The placement and direction field descriptions now explicitly distinguish given
+coordinates from derived surface locations and directions. The atomic prompt
+reinforces those same generic relationships. No contact tolerance was loosened,
+no launch point was snapped to a surface, and no question-specific answer was
+added. The targeted live check then passed using `on_surface` and `surface_normal`
+(report `14974b4d-7970-4d05-8ecd-6c188de28989`).
+
+Rejected provider tool calls now retain only an allowlisted tool name and
+sanitized schema-validation paths/types when their envelope is recognizable.
+Raw provider messages, arguments and unknown field names are not copied into
+this diagnostic, and rejected calls are never executed. Host-valid arguments
+are not proof of provider-schema acceptance or semantic correctness.
 
 The first 2026-10-26 run passed five of six. Finite stairs failed before simulation:
 the model returned a null position, followed by an upstream request failure.

@@ -252,7 +252,7 @@ class AgentTests(unittest.TestCase):
         variants=schema['properties']['commands']['items']['oneOf']
         particle=next(v for v in variants if v['properties']['op']['const']=='add_particle')
         self.assertIn('set_launch',particle['description'])
-        self.assertIn('Never leave both placements null',particle['properties']['position']['description'])
+        self.assertIn('Exactly one placement is required',particle['properties']['position']['description'])
         launch=next(v for v in variants if v['properties']['op']['const']=='set_launch')
         self.assertIn('already added particle',launch['description'])
         self.assertIn('not both',launch['description'])

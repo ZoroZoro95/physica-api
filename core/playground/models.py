@@ -203,8 +203,8 @@ class AddParticle(Model):
     """Create a particle at exactly one placement. Set its velocity separately with set_launch."""
     op: Literal["add_particle"]
     id: ObjectId
-    position: Point | None = Field(default=None, description="Explicit coordinates {x,y}; required unless on_surface is provided. Never leave both placements null.")
-    on_surface: Placement | None = Field(default=None, description="Alternative to position: place on a named ground/wedge at fraction 0..1. Not supported for staircases.")
+    position: Point | None = Field(default=None, description="Use for given coordinates or a chosen free-space origin. Do NOT calculate coordinates for a point specified on a ground/wedge; use on_surface instead. Exactly one placement is required.")
+    on_surface: Placement | None = Field(default=None, description="Use for a point specified on a ground/wedge: surface_id and fraction 0..1 (midpoint is 0.5). Engine computes exact coordinates. Omit position. Not supported for staircases.")
 
     @model_validator(mode="after")
     def one_position(self):
@@ -218,7 +218,7 @@ class SetLaunch(Model):
     op: Literal["set_launch"]
     particle_id: ObjectId
     speed: Annotated[float, Field(ge=0, le=10_000, allow_inf_nan=False)]
-    direction: Literal["angle", "surface_normal", "surface_tangent"]
+    direction: Literal["angle", "surface_normal", "surface_tangent"] = Field(description="Perpendicular to a plane means surface_normal; along a plane means surface_tangent. Use surface_id, not a calculated angle_deg. Use angle only for a launch angle given relative to +x.")
     angle_deg: Annotated[float, Field(ge=-360, le=360, allow_inf_nan=False)] | None = None
     surface_id: ObjectId | None = None
 

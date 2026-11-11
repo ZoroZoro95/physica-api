@@ -147,6 +147,56 @@ DESCRIPTIONS = {
 }
 
 
+def tool_failure_diagnostic(error, available):
+    """Inspect known call envelopes; never execute or persist rejected content."""
+    result = {'provider_error': 'tool_use_failed'}
+    raw = error.get('failed_generation')
+    if not isinstance(raw, str) or len(raw) > 64_000:
+        return result
+    try:
+        wrapper = re.fullmatch(r'\s*<function=([A-Za-z_]+)>([\s\S]*)</function>\s*', raw)
+        if wrapper:
+            name, arguments = wrapper.groups()
+            arguments = json.loads(arguments)
+        else:
+            value = json.loads(raw)
+            if not isinstance(value, dict):
+                return result
+            function = value.get('function', value)
+            if not isinstance(function, dict):
+                return result
+            name = function.get('name')
+            arguments = function.get('arguments', function.get('parameters'))
+            if isinstance(arguments, str):
+                arguments = json.loads(arguments)
+        if not isinstance(name, str) or name not in available or name not in MODELS:
+            result['call_issue'] = 'unavailable_tool'
+            return result
+        result['tool'] = name
+        schema = MODELS[name].model_json_schema()
+        safe_fields = set()
+        def collect(value):
+            if isinstance(value, dict):
+                safe_fields.update(value.get('properties', {}))
+                if isinstance(value.get('const'), str):
+                    safe_fields.add(value['const'])
+                for child in value.values(): collect(child)
+            elif isinstance(value, list):
+                for child in value: collect(child)
+        collect(schema)
+        try:
+            MODELS[name].model_validate(arguments)
+            result['arguments_valid'] = True
+        except ValidationError as exc:
+            result['arguments_valid'] = False
+            result['validation'] = [{'path': '.'.join(str(part) if isinstance(part, int) or part in safe_fields else '<field>'
+                for part in entry['loc']), 'type': entry['type']}
+                for entry in exc.errors(include_input=False, include_context=False, include_url=False)[:8]]
+    except (ValueError, TypeError, RecursionError):
+        result['call_issue'] = 'unrecognized_envelope'
+    return result
+
+
 def tool_definitions(names=None):
     # Schemas come from the same validation types as the API, not a second
     # hand-maintained catalogue. Inline local refs for provider compatibility.
@@ -333,6 +383,9 @@ interpretation is justified, so the host sizes it. Never change a given count.
 Use finish_scene ONLY for needs_clarification or unsupported; never for review.
 No narrative, calculation or final answer is needed. Fix validation errors by
 resubmitting the entire recipe, preserving the source physics.
+Keep geometric relationships declarative: a location on a slope uses on_surface,
+and a perpendicular launch uses surface_normal. Do not replace either with
+coordinates or absolute angles you computed yourself, even approximately.
 '''
     messages = [{'role': 'system', 'content': prompt}, {'role': 'user', 'content': question}]
     trace, calls, rejected_calls = [], 0, 0
@@ -369,7 +422,8 @@ resubmitting the entire recipe, preserving the source physics.
             body = getattr(exc, 'body', None)
             error = body.get('error', body) if isinstance(body, dict) else {}
             if isinstance(error, dict) and error.get('code') == 'tool_use_failed':
-                trace.append({'provider_error': 'tool_use_failed'})
+                diagnostic = tool_failure_diagnostic(error, available)
+                trace.append(diagnostic)
                 if rejected_calls == 0:
                     rejected_calls += 1
                     messages.append({'role': 'user', 'content': 'The provider rejected your last tool call. Nothing from that response was executed. Return one call to an available tool with arguments matching its JSON schema. Do not return plain text or invent tool names.'})
