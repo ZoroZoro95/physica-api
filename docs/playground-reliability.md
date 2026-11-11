@@ -72,7 +72,7 @@ Two rendering regressions found by this sweep were repaired:
 ## Live interpretation gate
 
 This is separate from deterministic physics verification and uses the locally
-configured provider. It is opt-in, bounded to seven cases, spaced by default, with
+configured provider. It is opt-in, bounded to nine cases, spaced by default, with
 no automatic retries or fallback model. It keeps failures in its output.
 
 ```sh
@@ -81,8 +81,8 @@ python scripts/audit_playground_live.py --live \
 ```
 
 Cases: level-ground launch; translated leftward cliff launch; descending incline;
-explicitly finite stairs; missing speed; unsupported drag; delayed launch (not yet
-supported by the AI tool interface, even though manual scheduling is available).
+explicitly finite stairs; missing speed; unsupported drag; delayed launch;
+two independent particles with different launch times; unsupported collision response.
 The checker validates
 source values, direction, finite extents, horizon, physical result and requested
 engine-backed measurements. Model status `review` alone is not a pass.

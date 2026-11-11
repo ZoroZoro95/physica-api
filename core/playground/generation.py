@@ -12,8 +12,9 @@ from groq import Groq
 from pydantic import Field, ValidationError, field_validator
 
 from .agent import ModelOutputTruncated, run_agent
-from .engine import apply, geometry, simulate
-from .models import ApplyRequest, CreateRequest, Model, Scene, SimulateRequest, Simulation
+from .engine import apply, geometry, simulate, schedule_launch
+from .ensemble import simulate_scene
+from .models import ApplyRequest, CreateRequest, Model, Scene, SimulateRequest, Simulation, ScheduleLaunchRequest, SceneSimulateRequest, SceneSimulation
 from .planning import PlannedSimulationRequest, plan_simulation
 
 router = APIRouter()
@@ -39,6 +40,8 @@ class GenerateResponse(Model):
     report_id: str
     scene: Scene | None = None
     simulation: Simulation | None = None
+    ensemble: SceneSimulation | None = None
+    max_time: float | None = None
     meshes: list[dict] = Field(default_factory=list)
 
 
@@ -52,6 +55,10 @@ class LocalPlaygroundAPI:
                 result = Scene(gravity=CreateRequest.model_validate(json).gravity)
             elif path == '/v1/scenes/apply':
                 result = apply(ApplyRequest.model_validate(json))
+            elif path == '/v1/scenes/schedule':
+                result = schedule_launch(ScheduleLaunchRequest.model_validate(json))
+            elif path == '/v1/simulations/scene':
+                result = simulate_scene(SceneSimulateRequest.model_validate(json))
             elif path == '/v1/simulations':
                 result = simulate(SimulateRequest.model_validate(json))
             elif path == '/v1/simulations/planned':
@@ -107,7 +114,8 @@ def generate(request: GenerateRequest):
             (destination / 'scene.json').write_text(scene.model_dump_json(indent=2)+'\n')
         return GenerateResponse(status=report['status'], reason=report['reason'],
             assumptions=report['assumptions'], report_id=report_id, scene=scene,
-            simulation=report['simulation'], meshes=geometry(scene) if scene else [])
+            simulation=report['simulation'], ensemble=report.get('ensemble'),
+            max_time=report.get('max_time'), meshes=geometry(scene) if scene else [])
     except OSError:
         raise HTTPException(503, 'Unable to save the generation report. The current scene has not been replaced.') from None
     finally:

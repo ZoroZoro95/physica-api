@@ -18,24 +18,52 @@ CASES = [
     dict(id='missing_speed', question='A point particle is launched horizontally from 45 m above level ground. Use g=10 m/s^2. Build its trajectory until contact. The launch speed is not specified.'),
     dict(id='drag', question='A ball launches from ground at 20 m/s and 45 degrees. Use g=10 m/s^2 and INCLUDE linear air drag with drag acceleration equal to -0.2 times its velocity. Simulate until landing.'),
     dict(id='delayed_launch', question='A particle is held at (0,20) metres until absolute time t=2 seconds, then launched horizontally at 5 m/s. Ground is y=0, g=10 m/s^2, no drag. Preserve the initial waiting period and simulate from t=0 until impact.'),
+    dict(id='two_particles', question='Two independent point particles P and Q move under g=10 m/s^2 with no drag. Ground is y=0. P starts at (0,50) m at t=0 with speed 2 m/s horizontally right. Q is held at (8,50) m until t=1 s, then launched horizontally left at 2 m/s. Simulate both on one absolute timeline until t=4 s. Report any free-flight meetings; no collision response.'),
+    dict(id='collision_response', question='Two equal-mass balls approach head-on at 5 m/s and collide elastically. Simulate their rebound velocities and motion after collision under g=10 m/s^2.'),
 ]
 
 
 def check(case, response):
     id = case['id']
-    if id in ('missing_speed','drag','delayed_launch'):
+    if id in ('missing_speed','drag','collision_response'):
         expected = 'needs_clarification' if id == 'missing_speed' else 'unsupported'
         assert response['status'] == expected, response.get('reason')
         assert response.get('scene') is None and response.get('simulation') is None
         return
     assert response['status'] == 'review', response.get('reason')
     s, sim = response['scene'], response['simulation']
+    if id == 'two_particles':
+        assert len(s['particles']) == 2
+        particles = {p['id']: p for p in s['particles']}
+        assert set(particles) == {'P','Q'}
+        for name, x, vx, delay in [('P',0,2,0),('Q',8,-2,1)]:
+            p = particles[name]
+            assert p['position'] == {'x': x, 'y': 50}
+            assert math.isclose(p['velocity']['x'],vx,abs_tol=1e-7)
+            assert math.isclose(p['velocity']['y'],0,abs_tol=1e-7)
+            assert p['launch_time'] == delay
+        assert s['gravity'] == 10 and response['max_time'] == 4
+        ensemble = response['ensemble']
+        assert len(ensemble['tracks']) == 2 and ensemble['encounters'] == []
+        assert ensemble['scene_id'] == s['id'] and ensemble['revision'] == s['revision']
+        assert ensemble['interaction'] == 'independent'
+        tracks = {t['particle_id']:t for t in ensemble['tracks']}
+        assert math.isclose(tracks['P']['contact']['time'],math.sqrt(10),abs_tol=1e-7)
+        assert tracks['Q']['status'] == 'time_limit' and tracks['Q']['contact'] is None
+        assert math.isclose(tracks['Q']['samples'][-1]['position']['y'],5,abs_tol=1e-7)
+        return
     assert len(s['particles']) == 1, 'Expected one particle'
     assert s['id'] == sim['scene_id'] and s['revision'] == sim['revision']
     p = s['particles'][0]
     def close(a,b):
         assert math.isclose(a,b,rel_tol=1e-7,abs_tol=1e-7), f'{a} != {b}'
     close(s['gravity'],9.8 if id == 'finite_stairs' else 10)
+    if id == 'delayed_launch':
+        assert p['position'] == {'x':0,'y':20} and p['launch_time'] == 2
+        close(p['velocity']['x'],5); close(p['velocity']['y'],0)
+        close(sim['contact']['time'],4)
+        close(sim['contact']['position']['x'],10); close(sim['contact']['position']['y'],0)
+        return
     if id == 'finite_stairs':
         stair = s['surfaces'][0]
         assert len(s['surfaces']) == 1 and stair['kind'] == 'staircase' and stair['count'] == 5

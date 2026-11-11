@@ -43,6 +43,45 @@ class GenerationTests(unittest.TestCase):
         self.assertEqual(report['simulation'], body['simulation'])
         self.assertEqual(report['operations'][-1]['request']['max_time'], 5)
 
+    def test_scheduled_ensemble_returns_all_tracks_and_meeting(self):
+        body = self.ensemble_recipe()
+        response = self.generate(call('build_and_simulate', body)).json()
+        self.assertEqual(response['status'], 'review')
+        self.assertEqual(response['max_time'], 3)
+        self.assertEqual(len(response['ensemble']['tracks']), 2)
+        self.assertEqual(response['ensemble']['encounters'][0]['time'], 2)
+        self.assertEqual(response['ensemble']['encounters'][0]['position'], {'x': 4, 'y': 30})
+        self.assertEqual(response['scene']['particles'][1]['launch_time'], 1)
+        self.assertEqual(response['simulation']['particle_id'], 'Q')
+        report = json.loads((generation.REPORT_ROOT/response['report_id']/'report.json').read_text())
+        self.assertEqual(report['ensemble'], response['ensemble'])
+
+    @staticmethod
+    def ensemble_recipe():
+        return dict(gravity=10, commands=[
+            {'op': 'add_particle', 'id': 'P', 'position': {'x': 0, 'y': 50}},
+            {'op': 'set_launch', 'particle_id': 'P', 'speed': 2, 'direction': 'angle', 'angle_deg': 0},
+            {'op': 'add_particle', 'id': 'Q', 'position': {'x': 6, 'y': 45}},
+            {'op': 'set_launch', 'particle_id': 'Q', 'speed': 104**.5, 'direction': 'angle', 'angle_deg': -101.30993247402021}],
+            launches=[{'particle_id': 'Q', 'launch_time': 1}],
+            simulation={'particle_id': 'Q', 'max_time': 3}, assumptions=[])
+
+    def test_invalid_schedules_and_multi_extent_export_no_partial_result(self):
+        for mutation in ['unknown', 'duplicate', 'negative', 'selected', 'continuing', 'too_many']:
+            body = self.ensemble_recipe()
+            if mutation == 'unknown': body['launches'][0]['particle_id'] = 'R'
+            if mutation == 'duplicate': body['launches'] *= 2
+            if mutation == 'negative': body['launches'][0]['launch_time'] = -1
+            if mutation == 'selected': body['simulation']['particle_id'] = 'R'
+            if mutation == 'continuing': body['simulation']['continuing_staircases'] = ['stairs']
+            if mutation == 'too_many':
+                for id in ['R', 'S', 'T']:
+                    body['commands'].append({'op': 'add_particle', 'id': id, 'position': {'x': 0, 'y': 50}})
+            response = self.generate(call('build_and_simulate', body)).json()
+            self.assertEqual(response['status'], 'failed')
+            for field in ['scene', 'simulation', 'ensemble', 'max_time']:
+                self.assertIsNone(response[field])
+
     def test_declines_have_no_scene_and_do_not_replace_anything(self):
         for status in ['needs_clarification', 'unsupported']:
             response = self.generate(call('finish_scene', {'status': status,

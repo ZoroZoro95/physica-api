@@ -54,8 +54,9 @@ displacement. Missing contacts remain unavailable, never guessed.
   added particle. Both rebuild tracks and reset playback while preserving the
   simulation horizon. Waiting particles show zero velocity and no moving vectors.
 
-The AI generator still rejects multi-body and delayed-launch questions. Manual
-scheduling is supported, but no sliding,
+The atomic AI generator accepts up to four independent particles and explicit
+launch schedules. Generated scenes remain review candidates, not certified
+question interpretations. No sliding,
 fragmentation, inter-particle collision detection/response or interception solving
 is implied. Crossing paths currently pass through one another as independent
 point particles; the UI explicitly states this limitation.
@@ -125,8 +126,7 @@ pauses and seeks to its exact time without changing particle selection or camera
 Moving-together intervals have separate start/end controls. Resimulation replaces
 the event list, and single-particle scenes do not retain prior events. Older API
 responses without the field show data unavailable, not a false no-meetings claim.
-The AI interpreter still
-rejects multi-body/delayed-launch requests; collision response, closest approach,
+The AI interpreter does not implement collision response, closest approach,
 and solving an unknown interception speed/angle are not implemented.
 
 Run `python scripts/regress_playground_encounters.py` for encounter checks,
@@ -140,5 +140,30 @@ and reports are saved in `/tmp/physica-encounters`.
 desktop-mobile browser audits, and frontend production build passed. No live
 AI-provider suite or deployment was run for this UI integration.
 
-Next: expose scheduled multi-body recipes to the AI interpreter with source-value
-validation and live acceptance tests; do not expand collision-response claims.
+## AI recipe boundary
+
+The existing `build_and_simulate` recipe now accepts optional `launches`, each
+containing `particle_id` and absolute `launch_time`. Missing entries default to
+zero. Duplicate schedules, unknown particles, invalid times and more than four
+particles reject the entire candidate. The selected particle must exist. Multi-body
+recipes currently require finite geometry; continuing staircase expansion remains
+single-particle only. The older staged tool workflow remains single-particle.
+
+Generation returns the selected `simulation`, the complete `ensemble` when there
+are multiple particles, and the original `max_time`. The UI retains that horizon
+when editing annotations and rejects incomplete ensembles without replacing the
+previous scene. Reports retain all schedules, tracks and API operations.
+
+Review every source value and assumption. Schema validation and the physics
+engine cannot prove that an LLM interpreted arbitrary text correctly. Unknown
+launch speeds/angles requiring inverse solving and collision response remain
+outside the prompt's supported scope. Next: broaden live interpretation coverage
+before claiming general multi-body question support.
+
+2026-11-11 acceptance: 96 offline backend tests and desktop/mobile generation UI
+checks passed. Live delayed-launch and two-particle source-value checks, plus
+collision-response refusal, passed. The two-particle checker initially incorrectly
+expected both particles to land by t=4; Q launches at t=1 and lands at 4.16227766 s.
+The original saved response passed the corrected checker without another model
+call. An additional level-ground live check was rate-limited by Groq; the full
+nine-case provider suite has not passed on this prompt. No deployment performed.
