@@ -153,6 +153,21 @@ def tool_failure_diagnostic(error, available):
     raw = error.get('failed_generation')
     if not isinstance(raw, str) or len(raw) > 64_000:
         return result
+    # Only fixed categories are persisted: rejected text can contain secrets.
+    stripped = raw.strip()
+    result['envelope_format'] = (
+        'function_tag' if stripped.startswith('<function=') else
+        'tool_call_tag' if stripped.startswith('<tool_call>') else
+        'json_object' if stripped.startswith('{') else
+        'json_array' if stripped.startswith('[') else
+        'code_fence' if stripped.startswith('```') else 'other'
+    )
+    if result['envelope_format'] == 'function_tag':
+        result['function_tag_closed'] = stripped.endswith('</function>')
+        opening_end = stripped.find('>')
+        result['arguments_in_opening_tag'] = (
+            opening_end >= 0 and '{' in stripped[:opening_end]
+        )
     try:
         wrapper = re.fullmatch(r'\s*<function=([A-Za-z_]+)>([\s\S]*)</function>\s*', raw)
         if wrapper:
@@ -161,9 +176,11 @@ def tool_failure_diagnostic(error, available):
         else:
             value = json.loads(raw)
             if not isinstance(value, dict):
+                result['call_issue'] = 'non_object_envelope'
                 return result
             function = value.get('function', value)
             if not isinstance(function, dict):
+                result['call_issue'] = 'non_object_function'
                 return result
             name = function.get('name')
             arguments = function.get('arguments', function.get('parameters'))

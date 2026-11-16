@@ -1,6 +1,45 @@
 # Playground reliability gate
 
-## Latest checkpoint: 2026-11-12
+## Latest checkpoint: 2026-11-16
+
+107 offline tests pass. One complete, spaced nine-case live sweep passed, as did
+offline replay of its saved reports. The targeted incline check also passed
+(`3ee6b1ca-c5dc-48d1-aa43-df1e86a412bb`). No prompt, model, physics, validation
+tolerance or retry policy changed in this checkpoint. This successful run does
+not establish that the earlier intermittent provider rejection is fixed.
+
+| Case | Result | Saved report ID |
+| --- | --- | --- |
+| Ground | passed | `54029db9-5c20-451b-b7cf-66fe14022283` |
+| Cliff | passed | `70ccd924-ea7f-401b-865a-cf872774396b` |
+| Incline | passed | `886d3785-7f78-4b46-93bd-3e388561a2cb` |
+| Finite staircase | passed | `0870b4ce-6ebc-4c26-bcd7-a5a12e851d2a` |
+| Missing speed | clarification requested | `52549a08-fe63-445b-90a9-8e8880c6acf4` |
+| Air drag | unsupported, correctly declined | `fff8580e-a7f4-4efb-8c8c-43798eff3378` |
+| Delayed launch | passed | `1d92d0d6-6941-4c54-afc4-84bfac3c9085` |
+| Two independent particles | passed | `54d5ce82-055b-48f0-8004-da2def249b4c` |
+| Elastic collision response | unsupported, correctly declined | `2c967c01-1bb9-418a-82be-c6214667893f` |
+
+Rejected-call diagnostics now classify the envelope using fixed categories and
+booleans, including arguments incorrectly placed inside an opening function tag.
+No rejected content or argument values are stored, and no rejected call is
+executed, even when its arguments pass local validation. Regression tests cover
+these privacy and execution boundaries. The historical rejected envelope was
+not saved, so its exact cause cannot be reconstructed from old reports.
+
+Artifacts on this machine: `/tmp/physica-full-nov16.json` and
+`/tmp/physica-full-nov16-replay.json`; detailed reports remain under
+`questions/debug_reports/playground-agent/<report-id>/report.json` (untracked).
+These are backend interpretation/numerical checks, not browser or walkthrough
+acceptance. No frontend changes or deployment were performed.
+
+Next: verify generated scenarios in the real playground renderer, especially
+separate particle labels, delayed visibility and first-contact markers. Preserve
+this nine-case gate when extending relative-motion inspection. Broader JEE
+coverage, image interpretation, inverse solving and collision response remain
+outside this acceptance result.
+
+## Previous checkpoint: 2026-11-12
 
 106 offline tests pass. Declarative placement/direction guidance fixed one
 observed rounded-coordinate recipe error, and the targeted incline check passed

@@ -97,7 +97,8 @@ class AgentTests(unittest.TestCase):
 
     def test_provider_tool_rejection_can_retry_without_executing_arguments(self):
         class ProviderError(Exception):
-            body = {'code': 'tool_use_failed'}
+            body = {'code': 'tool_use_failed', 'failed_generation':
+                '<function=create_scene>{"gravity":10}</function>'}
 
         attempts = 0
 
@@ -113,6 +114,8 @@ class AgentTests(unittest.TestCase):
         self.assertEqual(result['tool_calls'], 1)
         self.assertEqual(attempts, 2)
         self.assertIsNone(result['scene'])
+        self.assertEqual(result['operations'], [])
+        self.assertTrue(result['trace'][0]['arguments_valid'])
 
     def test_missing_and_unsupported_do_not_export_scene(self):
         for status in ('needs_clarification', 'unsupported'):

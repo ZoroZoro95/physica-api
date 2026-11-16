@@ -38,6 +38,24 @@ class DiagnosticTests(unittest.TestCase):
             self.assertNotIn('private-value',json.dumps(result))
             self.assertNotIn('arguments_valid',result)
 
+    def test_malformed_envelope_reports_only_fixed_structure(self):
+        cases = [
+            ('<function=finish_scene{"reason":"private-value"}></function>', 'function_tag'),
+            ('<tool_call>private-value</tool_call>', 'tool_call_tag'),
+            ('```json\nprivate-value\n```', 'code_fence'),
+            ('{"private-value":', 'json_object'),
+            ('["private-value"]', 'json_array'),
+        ]
+        for raw, expected in cases:
+            with self.subTest(expected=expected):
+                result=tool_failure_diagnostic({'failed_generation':raw}, {'finish_scene'})
+                self.assertEqual(result['envelope_format'],expected)
+                self.assertNotIn('private-value',json.dumps(result))
+                self.assertNotIn('arguments_valid',result)
+        result=tool_failure_diagnostic({'failed_generation':cases[0][0]}, {'finish_scene'})
+        self.assertTrue(result['arguments_in_opening_tag'])
+        self.assertTrue(result['function_tag_closed'])
+
 
 if __name__=='__main__':
     unittest.main(verbosity=2)
